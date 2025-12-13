@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a8d8ea"/>
+      <stop offset="100%" style="stop-color:#7fc4d6"/>
+    </linearGradient>
+    <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffb5ba"/>
+      <stop offset="100%" style="stop-color:#ff8a9b"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bgGrad)"/>
+  
+  <!-- Decorative clouds -->
+  <ellipse cx="25" cy="35" rx="12" ry="8" fill="white" opacity="0.6"/>
+  <ellipse cx="100" cy="30" rx="15" ry="10" fill="white" opacity="0.5"/>
+  <ellipse cx="95" cy="95" rx="10" ry="7" fill="white" opacity="0.4"/>
+  
+  <!-- Cute ribbon/bow -->
+  <g transform="translate(64, 40)">
+    <!-- Left loop -->
+    <ellipse cx="-18" cy="0" rx="16" ry="12" fill="url(#ribbonGrad)"/>
+    <!-- Right loop -->
+    <ellipse cx="18" cy="0" rx="16" ry="12" fill="url(#ribbonGrad)"/>
+    <!-- Center knot -->
+    <circle cx="0" cy="0" r="8" fill="#ff6b7f"/>
+    <!-- Ribbons hanging down -->
+    <path d="M-5 8 Q-10 30 -8 45 Q-6 48 -3 45 Q0 30 -2 10 Z" fill="url(#ribbonGrad)"/>
+    <path d="M5 8 Q10 30 8 45 Q6 48 3 45 Q0 30 2 10 Z" fill="url(#ribbonGrad)"/>
+  </g>
+  
+  <!-- Book/study element -->
+  <g transform="translate(64, 85)">
+    <rect x="-22" y="-12" width="44" height="24" rx="3" fill="white"/>
+    <rect x="-20" y="-10" width="40" height="20" rx="2" fill="#e8f4f8"/>
+    <line x1="-15" y1="-4" x2="15" y2="-4" stroke="#7fc4d6" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-15" y1="2" x2="10" y2="2" stroke="#7fc4d6" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-15" y1="8" x2="5" y2="8" stroke="#a8d8ea" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Sparkles -->
+  <g fill="#fff" opacity="0.9">
+    <polygon points="20,60 22,65 27,65 23,68 25,73 20,70 15,73 17,68 13,65 18,65" />
+    <polygon points="105,55 106,58 109,58 107,60 108,63 105,61 102,63 103,60 101,58 104,58" transform="scale(0.8) translate(20, 10)"/>
+    <polygon points="50,20 51,23 54,23 52,25 53,28 50,26 47,28 48,25 46,23 49,23" transform="scale(0.7)"/>
+  </g>
+  
+  <!-- Heart accent -->
+  <path d="M108 75 C108 70 102 70 102 75 C102 70 96 70 96 75 C96 82 102 88 102 88 C102 88 108 82 108 75" fill="#ffb5ba"/>
+</svg>
+

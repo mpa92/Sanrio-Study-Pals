@@ -1,0 +1,18 @@
+# Documentation files (not needed in repo)
+GITHUB_DESCRIPTION.md
+DATA_USAGE_FORM.md
+PRIVACY_COMPLIANCE.md
+STORE_DESCRIPTION.md
+DEPLOYMENT_GUIDE.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+

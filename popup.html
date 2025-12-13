@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sanrio Study Pals</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app" class="theme-cinnamoroll">
+    <!-- Sparkle Effects -->
+    <div class="sparkles">
+      <span class="sparkle"></span>
+      <span class="sparkle"></span>
+      <span class="sparkle"></span>
+      <span class="sparkle"></span>
+      <span class="sparkle"></span>
+    </div>
+    
+    <!-- Floating Hearts -->
+    <div class="floating-hearts">
+      <span class="floating-heart">💖</span>
+      <span class="floating-heart">💕</span>
+      <span class="floating-heart">✨</span>
+      <span class="floating-heart">🌸</span>
+      <span class="floating-heart">💗</span>
+      <span class="floating-heart">⭐</span>
+    </div>
+    
+    <!-- Confetti Container -->
+    <div class="confetti-container" id="confetti-container"></div>
+    
+    <!-- FP Popup -->
+    <div class="fp-popup" id="fp-popup">
+      <span class="fp-amount" id="fp-popup-amount">+25</span>
+      <span class="fp-label">Friendship Points!</span>
+    </div>
+    
+    <!-- Custom Sanrio Modal -->
+    <div class="sanrio-modal-overlay" id="sanrio-modal-overlay">
+      <div class="sanrio-modal" id="sanrio-modal">
+        <div class="modal-character" id="modal-character">😿</div>
+        <h3 class="modal-title" id="modal-title">Are you sure?</h3>
+        <p class="modal-message" id="modal-message">This action cannot be undone.</p>
+        <div class="modal-buttons">
+          <button class="modal-btn modal-btn-cancel" id="modal-cancel">Cancel</button>
+          <button class="modal-btn modal-btn-confirm" id="modal-confirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <span class="header-icon">🎀</span>
+        <h1 class="header-title">Sanrio Study Pals</h1>
+      </div>
+      <div class="header-stats">
+        <div class="stat-badge fp-badge">
+          <span class="stat-icon">💖</span>
+          <span id="total-fp">0</span> FP
+        </div>
+        <div class="stat-badge streak-badge">
+          <span class="stat-icon">🔥</span>
+          <span id="streak-count">0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+      <button class="nav-tab active" data-tab="home">
+        <span class="tab-icon">🏠</span>
+        <span class="tab-label">Study</span>
+      </button>
+      <button class="nav-tab" data-tab="friends">
+        <span class="tab-icon">📖</span>
+        <span class="tab-label">Friends</span>
+      </button>
+      <button class="nav-tab" data-tab="achievements">
+        <span class="tab-icon">🌟</span>
+        <span class="tab-label">Awards</span>
+      </button>
+      <button class="nav-tab" data-tab="collectibles">
+        <span class="tab-icon">🎁</span>
+        <span class="tab-label">Items</span>
+      </button>
+      <button class="nav-tab" data-tab="settings">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-label">Settings</span>
+      </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <!-- HOME / STUDY TAB -->
+      <section id="tab-home" class="tab-content active">
+        <!-- Character Display -->
+        <div class="character-scene" id="character-scene">
+          <div class="scene-background" id="scene-bg"></div>
+          <div class="placed-stickers" id="placed-stickers"></div>
+          <div class="character-container">
+            <div class="character" id="character">
+              <div class="character-sprite" id="character-sprite"></div>
+              <div class="character-emote" id="character-emote"></div>
+            </div>
+          </div>
+          <div class="scene-decorations" id="scene-decorations"></div>
+          <button class="decorate-btn" id="decorate-btn" title="Decorate with stickers">🎨</button>
+        </div>
+        
+        <!-- Sticker Tray (for decorating) -->
+        <div class="sticker-tray" id="sticker-tray">
+          <div class="sticker-tray-header">
+            <span>✨ Place Your Stickers!</span>
+            <button class="sticker-tray-close" id="sticker-tray-close">✕</button>
+          </div>
+          <div class="sticker-tray-hint">💡 Double-click a sticker to delete it</div>
+          <div class="sticker-tray-items" id="sticker-tray-items"></div>
+          <div class="sticker-tray-actions">
+            <button class="sticker-clear-btn" id="sticker-clear-btn">🗑️ Clear All</button>
+            <button class="sticker-done-btn" id="sticker-done-btn">✓ Done</button>
+          </div>
+        </div>
+
+        <!-- Daily Greeting Banner -->
+        <div class="greeting-banner" id="greeting-banner">
+          🌟 Good morning! Let's make today amazing! 🌟
+        </div>
+        
+        <!-- Character Dialogue -->
+        <div class="dialogue-box" id="dialogue-box">
+          <div class="dialogue-name" id="dialogue-name">Cinnamoroll</div>
+          <p class="dialogue-text" id="dialogue-text">Hi! Ready to study together? ☁️</p>
+          <div class="encourage-bubble" id="encourage-bubble"></div>
+        </div>
+
+        <!-- Friendship Progress -->
+        <div class="friendship-display">
+          <div class="friendship-header">
+            <span class="friendship-label">Friendship Level</span>
+            <span class="friendship-level" id="friendship-level">Lv. 1 - Acquaintance</span>
+          </div>
+          <div class="friendship-bar">
+            <div class="friendship-fill" id="friendship-fill" style="width: 0%"></div>
+            <div class="friendship-sparkle"></div>
+          </div>
+          <div class="friendship-percent"><span id="friendship-percent">0</span>%</div>
+        </div>
+
+        <!-- Timer Display -->
+        <div class="timer-display" id="timer-display">
+          <div class="timer-ring">
+            <svg class="timer-svg" viewBox="0 0 200 200">
+              <circle class="timer-track" cx="100" cy="100" r="90"/>
+              <circle class="timer-progress" id="timer-progress" cx="100" cy="100" r="90"/>
+            </svg>
+            <div class="timer-inner">
+              <span class="timer-time" id="timer-time">25:00</span>
+              <span class="timer-label" id="timer-label">Focus Time</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Study Mode Selection -->
+        <div class="mode-selection" id="mode-selection">
+          <h3 class="section-title">✨ Choose Your Study Mode</h3>
+          <div class="mode-buttons">
+            <button class="mode-btn" data-mode="quick" data-duration="25">
+              <span class="mode-icon">🍅</span>
+              <span class="mode-name">Quick Start</span>
+              <span class="mode-time">25 min</span>
+            </button>
+            <button class="mode-btn" data-mode="medium" data-duration="50">
+              <span class="mode-icon">📚</span>
+              <span class="mode-name">Extended</span>
+              <span class="mode-time">50 min</span>
+            </button>
+            <button class="mode-btn" data-mode="long" data-duration="90">
+              <span class="mode-icon">🌙</span>
+              <span class="mode-name">Deep Focus</span>
+              <span class="mode-time">90 min</span>
+            </button>
+          </div>
+          <div class="custom-timer">
+            <label class="custom-label">Or set custom time:</label>
+            <div class="custom-input-group">
+              <input type="number" id="custom-minutes" min="1" max="180" value="30" class="custom-input">
+              <span class="custom-unit">minutes</span>
+              <button class="custom-start-btn" id="custom-start">Start</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timer Controls -->
+        <div class="timer-controls" id="timer-controls" style="display: none;">
+          <button class="control-btn pause-btn" id="pause-btn">
+            <span class="btn-icon">⏸️</span>
+            Pause
+          </button>
+          <button class="control-btn stop-btn" id="stop-btn">
+            <span class="btn-icon">⏹️</span>
+            End Session
+          </button>
+        </div>
+
+        <!-- Session Complete Screen -->
+        <div class="session-complete" id="session-complete" style="display: none;">
+          <div class="complete-animation">
+            <span class="complete-star">⭐</span>
+            <span class="complete-star">🌟</span>
+            <span class="complete-star">✨</span>
+          </div>
+          <h2 class="complete-title">Session Complete!</h2>
+          <p class="complete-message" id="complete-message">Great job studying together!</p>
+          <div class="complete-rewards">
+            <div class="reward-item">
+              <span class="reward-icon">💖</span>
+              <span class="reward-value" id="reward-fp">+25 FP</span>
+            </div>
+            <div class="reward-item">
+              <span class="reward-icon">💕</span>
+              <span class="reward-value" id="reward-friendship">+0.2% Friendship</span>
+            </div>
+          </div>
+          <div class="streak-progress-section" id="streak-progress-section">
+            <div class="streak-progress-header">
+              <span class="streak-icon">🔥</span>
+              <span class="streak-status" id="streak-status">Building Your Streak</span>
+            </div>
+            <div class="streak-progress-bar">
+              <div class="streak-progress-fill" id="streak-progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="streak-progress-text">
+              <span id="streak-progress-text">0 / 120 minutes today</span>
+            </div>
+          </div>
+          <button class="complete-btn" id="complete-continue">Continue</button>
+        </div>
+      </section>
+
+      <!-- FRIENDS / JOURNAL TAB -->
+      <section id="tab-friends" class="tab-content">
+        <h2 class="page-title">📖 Friendship Journal</h2>
+        <div class="character-grid" id="character-grid">
+          <!-- Characters will be populated by JS -->
+        </div>
+      </section>
+
+      <!-- ACHIEVEMENTS TAB -->
+      <section id="tab-achievements" class="tab-content">
+        <h2 class="page-title">🌟 Achievements</h2>
+        <div class="achievements-grid" id="achievements-grid">
+          <!-- Achievements will be populated by JS -->
+        </div>
+      </section>
+
+      <!-- COLLECTIBLES TAB -->
+      <section id="tab-collectibles" class="tab-content">
+        <h2 class="page-title">🎁 Collectibles</h2>
+        <div class="collectibles-tabs">
+          <button class="collect-tab active" data-collect="accessories">🎀 Accessories</button>
+          <button class="collect-tab" data-collect="wallpapers">🖼️ Wallpapers</button>
+          <button class="collect-tab" data-collect="stickers">✨ Stickers</button>
+        </div>
+        <div class="collectibles-grid" id="collectibles-grid">
+          <!-- Collectibles will be populated by JS -->
+        </div>
+      </section>
+
+      <!-- SETTINGS TAB -->
+      <section id="tab-settings" class="tab-content">
+        <h2 class="page-title">⚙️ Settings</h2>
+        
+        <div class="settings-group">
+          <h3 class="settings-label">🎨 Theme</h3>
+          <div class="theme-selector" id="theme-selector">
+            <button class="theme-btn active" data-theme="cinnamoroll" style="background: linear-gradient(135deg, #a8d8ea, #e8f4f8);">
+              <span>☁️</span>
+            </button>
+            <button class="theme-btn" data-theme="hellokitty" style="background: linear-gradient(135deg, #ffb5ba, #fff0f3);">
+              <span>🍎</span>
+            </button>
+            <button class="theme-btn" data-theme="mymelody" style="background: linear-gradient(135deg, #ffd1dc, #fff5f8);">
+              <span>🌸</span>
+            </button>
+            <button class="theme-btn" data-theme="kuromi" style="background: linear-gradient(135deg, #2d2d44, #8b7ec8);">
+              <span>💀</span>
+            </button>
+            <button class="theme-btn" data-theme="pompompurin" style="background: linear-gradient(135deg, #ffeaa7, #fff9e6);">
+              <span>🍮</span>
+            </button>
+            <button class="theme-btn" data-theme="badtzmaru" style="background: linear-gradient(135deg, #1a1a1a, #FFD700);">
+              <span>🐧</span>
+            </button>
+            <button class="theme-btn" data-theme="hangyodon" style="background: linear-gradient(135deg, #5CC5C5, #C5ECEC);">
+              <span>🐟</span>
+            </button>
+            <button class="theme-btn" data-theme="keroppi" style="background: linear-gradient(135deg, #8BC34A, #D8EFB8);">
+              <span>🐸</span>
+            </button>
+            <button class="theme-btn" data-theme="chococat" style="background: linear-gradient(135deg, #2D2926, #6BB3D9);">
+              <span>🐱</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="settings-label">🔊 Sound</h3>
+          <div class="settings-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="sound-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Sound Effects</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="settings-label">🔔 Notifications</h3>
+          <div class="settings-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="notif-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">Session Reminders</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="settings-label">👤 Current Study Pal</h3>
+          <select class="pal-selector" id="pal-selector">
+            <!-- Options populated by JS based on unlock status -->
+          </select>
+        </div>
+
+        <div class="settings-group">
+          <h3 class="settings-label">📊 Study Stats</h3>
+          <div class="stats-display">
+            <div class="stat-item">
+              <span class="stat-value" id="total-sessions">0</span>
+              <span class="stat-name">Sessions</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="total-hours">0</span>
+              <span class="stat-name">Hours</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="best-streak">0</span>
+              <span class="stat-name">Best Streak</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="reset-btn" id="reset-btn">🗑️ Reset All Data</button>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

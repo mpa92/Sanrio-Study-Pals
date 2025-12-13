@@ -2,7 +2,7 @@
 
 A cozy Chrome extension that combines productivity with the charm of a Sanrio friendship simulator. Study alongside adorable characters, earn Friendship Points, and unlock cute collectibles!
 
-![Sanrio Study Pals](icons/icon.svg)
+![Sanrio Study Pals](icons/ChatGPT%20Image%20Dec%2013,%202025,%2004_21_02%20AM.png)
 
 ## 🚀 Quick Start
 

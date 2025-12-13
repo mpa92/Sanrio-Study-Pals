@@ -2702,7 +2702,6 @@ function syncWithBackground() {
 async function init() {
   await loadState();
   
-
   // Apply saved theme
   updateTheme(state.theme);
   

@@ -1,8 +1,29 @@
+<div align="center">
+  <img src="icons/ChatGPT Image Dec 13, 2025, 04_21_02 AM.png" alt="Sanrio Study Pals" width="600"/>
+</div>
+
 # 🎀 Sanrio Study Pals
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A cozy Chrome extension that combines productivity with the charm of a Sanrio friendship simulator. Study alongside adorable characters, earn Friendship Points, and unlock cute collectibles!
 
-![Sanrio Study Pals](icons/ChatGPT%20Image%20Dec%2013,%202025,%2004_21_02%20AM.png)
+## 📑 Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Features](#-features)
+  - [Study Timer](#-study-timer)
+  - [Friendship System](#-friendship-system)
+  - [Progression](#-progression)
+  - [Achievements](#-achievements)
+  - [Collectibles](#-collectibles)
+  - [Accessory Shop](#-accessory-shop)
+- [Installation](#-installation)
+- [Themes](#-themes)
+- [FP Rewards & Friendship](#-fp-rewards--friendship)
+- [Technical Details](#-technical-details)
+- [Project Structure](#-project-structure)
+- [License](#-license)
 
 ## 🚀 Quick Start
 

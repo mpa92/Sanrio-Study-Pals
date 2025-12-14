@@ -456,38 +456,56 @@ const CHARACTERS = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const ACHIEVEMENTS = [
+  // First Steps
   { id: 'first_focus', name: 'First Focus', desc: 'Complete your first session', icon: '🌱', fpReward: 5, condition: (stats) => stats.totalSessions >= 1 },
+  { id: 'hour_1', name: 'First Hour', desc: 'Study for 1 hour total', icon: '⏰', fpReward: 15, condition: (stats) => stats.totalMinutes >= 60 },
+  { id: 'friend_1', name: 'First Friend', desc: 'Reach friendship level 2', icon: '🤝', fpReward: 5, condition: (stats) => stats.maxFriendshipLevel >= 2 },
+  
+  // Session Counts
   { id: 'pomodoro_pro', name: 'Pomodoro Pro', desc: 'Complete 10 sessions', icon: '🍅', fpReward: 15, condition: (stats) => stats.totalSessions >= 10 },
+  { id: 'session_25', name: 'Quick Learner', desc: 'Complete 25 sessions', icon: '⭐', fpReward: 20, condition: (stats) => stats.totalSessions >= 25 },
   { id: 'study_master', name: 'Study Master', desc: 'Complete 50 sessions', icon: '📚', fpReward: 30, condition: (stats) => stats.totalSessions >= 50 },
-  { id: 'early_bird', name: 'Early Bird', desc: 'Study before 8 AM', icon: '🌅', fpReward: 5, condition: (stats) => stats.earlyBird },
-  { id: 'night_owl', name: 'Night Owl', desc: 'Study after 10 PM', icon: '🦉', fpReward: 5, condition: (stats) => stats.nightOwl },
+  { id: 'session_100', name: 'Centurion', desc: 'Complete 100 sessions', icon: '💎', fpReward: 40, condition: (stats) => stats.totalSessions >= 100 },
+  
+  // Time Milestones 
+  { id: 'hour_3', name: 'Three Hours', desc: 'Study for 3 hours total', icon: '📖', fpReward: 20, condition: (stats) => stats.totalMinutes >= 180 },
+  { id: 'hour_12', name: 'Half Day', desc: 'Study for 12 hours total', icon: '☀️', fpReward: 25, condition: (stats) => stats.totalMinutes >= 720 },
+  { id: 'hour_24', name: 'Full Day', desc: 'Study for 24 hours total', icon: '📚', fpReward: 35, condition: (stats) => stats.totalMinutes >= 1440 },
+  { id: 'hour_48', name: 'Two Days', desc: 'Study for 48 hours total', icon: '🎓', fpReward: 45, condition: (stats) => stats.totalMinutes >= 2880 },
+  { id: 'hour_100', name: 'Century', desc: 'Study for 100 hours total', icon: '🏆', fpReward: 60, condition: (stats) => stats.totalMinutes >= 6000 },
+  
+  // Streaks
   { id: 'streak_3', name: 'On Fire', desc: '3 day streak', icon: '🔥', fpReward: 15, condition: (stats) => stats.currentStreak >= 3 },
   { id: 'streak_7', name: 'Week Warrior', desc: '7 day streak', icon: '⚔️', fpReward: 20, condition: (stats) => stats.currentStreak >= 7 },
-  { id: 'streak_30', name: 'Monthly Master', desc: '30 day streak', icon: '👑', fpReward: 40, condition: (stats) => stats.bestStreak >= 30 },
-  { id: 'hour_1', name: 'First Hour', desc: 'Study for 1 hour total', icon: '⏰', fpReward: 15, condition: (stats) => stats.totalMinutes >= 60 },
-  { id: 'hour_10', name: 'Dedicated', desc: 'Study for 10 hours total', icon: '💪', fpReward: 25, condition: (stats) => stats.totalMinutes >= 600 },
-  { id: 'hour_100', name: 'Century', desc: 'Study for 100 hours total', icon: '🏆', fpReward: 50, condition: (stats) => stats.totalMinutes >= 6000 },
-  { id: 'friend_1', name: 'First Friend', desc: 'Reach friendship level 2', icon: '🤝', fpReward: 5, condition: (stats) => stats.maxFriendshipLevel >= 2 },
-  { id: 'friend_max', name: 'BFF Status', desc: 'Max friendship with any character', icon: '💕', fpReward: 75, condition: (stats) => stats.maxFriendshipLevel >= 5 },
-  { id: 'deep_focus', name: 'Deep Focus', desc: 'Complete a 90-min session', icon: '🧘', fpReward: 20, condition: (stats) => stats.longestSession >= 90 },
-  { id: 'marathon', name: 'Marathon', desc: '5 sessions in one day', icon: '🏃', fpReward: 30, condition: (stats) => stats.sessionsToday >= 5 },
-  { id: 'session_25', name: 'Quick Learner', desc: 'Complete 25 sessions', icon: '⭐', fpReward: 20, condition: (stats) => stats.totalSessions >= 25 },
-  { id: 'session_100', name: 'Centurion', desc: 'Complete 100 sessions', icon: '💎', fpReward: 40, condition: (stats) => stats.totalSessions >= 100 },
-  { id: 'session_250', name: 'Legend', desc: 'Complete 250 sessions', icon: '🌟', fpReward: 60, condition: (stats) => stats.totalSessions >= 250 },
-  { id: 'hour_5', name: 'Half Day', desc: 'Study for 5 hours total', icon: '📖', fpReward: 20, condition: (stats) => stats.totalMinutes >= 300 },
-  { id: 'hour_25', name: 'Full Day', desc: 'Study for 25 hours total', icon: '📚', fpReward: 35, condition: (stats) => stats.totalMinutes >= 1500 },
-  { id: 'hour_50', name: 'Two Days', desc: 'Study for 50 hours total', icon: '🎓', fpReward: 45, condition: (stats) => stats.totalMinutes >= 3000 },
   { id: 'streak_14', name: 'Two Weeks Strong', desc: '14 day streak', icon: '💪', fpReward: 35, condition: (stats) => stats.currentStreak >= 14 },
   { id: 'streak_21', name: 'Three Weeks', desc: '21 day streak', icon: '🏅', fpReward: 45, condition: (stats) => stats.currentStreak >= 21 },
-  { id: 'streak_60', name: 'Two Months', desc: '60 day streak', icon: '👑', fpReward: 80, condition: (stats) => stats.bestStreak >= 60 },
-  { id: 'streak_100', name: 'Century Streak', desc: '100 day streak', icon: '💯', fpReward: 100, condition: (stats) => stats.bestStreak >= 100 },
+  { id: 'streak_30', name: 'Monthly Master', desc: '30 day streak', icon: '👑', fpReward: 50, condition: (stats) => stats.bestStreak >= 30 },
+  { id: 'streak_60', name: 'Two Months', desc: '60 day streak', icon: '👑', fpReward: 75, condition: (stats) => stats.bestStreak >= 60 },
+  
+  // Friendship Levels
   { id: 'friend_3', name: 'Close Friend', desc: 'Reach friendship level 3', icon: '💖', fpReward: 10, condition: (stats) => stats.maxFriendshipLevel >= 3 },
   { id: 'friend_4', name: 'Bestie', desc: 'Reach friendship level 4', icon: '💕', fpReward: 25, condition: (stats) => stats.maxFriendshipLevel >= 4 },
-  { id: 'session_3', name: 'Triple Threat', desc: '3 sessions in one day', icon: '🎯', fpReward: 15, condition: (stats) => stats.sessionsToday >= 3 },
-  { id: 'session_10', name: 'Power User', desc: '10 sessions in one day', icon: '⚡', fpReward: 50, condition: (stats) => stats.sessionsToday >= 10 },
+  { id: 'friend_max', name: 'BFF Status', desc: 'Max friendship with any character', icon: '💕', fpReward: 75, condition: (stats) => stats.maxFriendshipLevel >= 5 },
+  
+  // Session Lengths
   { id: 'long_session_60', name: 'Hour Power', desc: 'Complete a 60-min session', icon: '⏱️', fpReward: 15, condition: (stats) => stats.longestSession >= 60 },
+  { id: 'deep_focus', name: 'Deep Focus', desc: 'Complete a 90-min session', icon: '🧘', fpReward: 20, condition: (stats) => stats.longestSession >= 90 },
   { id: 'long_session_120', name: 'Two Hour Champion', desc: 'Complete a 120-min session', icon: '🏆', fpReward: 35, condition: (stats) => stats.longestSession >= 120 },
-  { id: 'both_times', name: 'Day & Night', desc: 'Study both early and late in one day', icon: '🌙', fpReward: 10, condition: (stats) => stats.earlyBird && stats.nightOwl }
+  
+  // Daily Challenges
+  { id: 'session_3', name: 'Triple Threat', desc: '3 sessions in one day', icon: '🎯', fpReward: 15, condition: (stats) => stats.sessionsToday >= 3 },
+  { id: 'marathon', name: 'Marathon', desc: '5 sessions in one day', icon: '🏃', fpReward: 30, condition: (stats) => stats.sessionsToday >= 5 },
+  
+  // Time of Day
+  { id: 'early_bird', name: 'Early Bird', desc: 'Study before 8 AM', icon: '🌅', fpReward: 5, condition: (stats) => stats.earlyBird },
+  { id: 'night_owl', name: 'Night Owl', desc: 'Study after 10 PM', icon: '🦉', fpReward: 5, condition: (stats) => stats.nightOwl },
+  { id: 'both_times', name: 'Day & Night', desc: 'Study both early and late in one day', icon: '🌙', fpReward: 10, condition: (stats) => stats.earlyBird && stats.nightOwl },
+  
+  // Mastery Achievement (unlocks when all others are completed)
+  { id: 'mastery', name: 'Ultimate Mastery', desc: 'Unlock all achievements', icon: '✨', fpReward: 200, condition: (stats) => {
+    // This will be checked separately - all other achievements must be unlocked
+    return false; // Always false, checked manually in checkAchievements
+  }}
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -602,6 +620,7 @@ const DEFAULT_STATE = {
 
 let state = { ...DEFAULT_STATE };
 let timerInterval = null;
+let syncInterval = null;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STORAGE FUNCTIONS
@@ -1299,16 +1318,17 @@ function startTimer(minutes) {
   // Update UI
   hideElement('mode-selection');
   showElement('timer-controls');
+  hideElement('session-complete');
   updateTimerLabel('Focus Time');
   
   // Update button text
   document.getElementById('pause-btn').innerHTML = '<span class="btn-icon">⏸️</span> Pause';
   
-  // Start interval
-  runTimer();
-  
-  // Notify background
-  sendChromeMessage({ action: 'startTimer', duration: minutes });
+  // Notify background FIRST to ensure it has the correct startTime
+  sendChromeMessage({ action: 'startTimer', duration: minutes }, () => {
+    // Start interval after background confirms
+    runTimer();
+  });
   
   // Show character reaction
   showEmote(getRandomEmote(state.currentCharacter));
@@ -1318,9 +1338,21 @@ function startTimer(minutes) {
 function runTimer() {
   if (timerInterval) clearInterval(timerInterval);
   
+  // Track last milestone times to prevent duplicate notifications
+  let lastMilestoneCheck = {
+    halfway: false,
+    quarterLeft: false,
+    oneMin: false
+  };
+  
   timerInterval = setInterval(() => {
-    if (!state.timer.isPaused && state.timer.remaining > 0) {
-      state.timer.remaining--;
+    if (!state.timer.isPaused && state.timer.isRunning && state.timer.startTime) {
+      // Recalculate remaining time from startTime to prevent drift
+      // This ensures accuracy even if the popup was minimized
+      const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
+      const totalSeconds = state.timer.duration * 60;
+      state.timer.remaining = Math.max(0, totalSeconds - elapsed);
+      
       updateTimer();
       
       // Random character reactions every 5 minutes
@@ -1329,15 +1361,18 @@ function runTimer() {
         showEncouragement();
       }
       
-      // Milestone encouragements
-      const totalSeconds = state.timer.duration * 60;
-      const progress = 1 - (state.timer.remaining / totalSeconds);
+      // Milestone encouragements (only show once per milestone)
+      const progress = elapsed / totalSeconds;
+      const remainingSeconds = state.timer.remaining;
       
-      if (state.timer.remaining === Math.floor(totalSeconds * 0.5)) {
+      if (progress >= 0.5 && !lastMilestoneCheck.halfway) {
+        lastMilestoneCheck.halfway = true;
         showToast("🎯 Halfway there! Keep going!");
-      } else if (state.timer.remaining === Math.floor(totalSeconds * 0.25)) {
+      } else if (progress >= 0.75 && !lastMilestoneCheck.quarterLeft) {
+        lastMilestoneCheck.quarterLeft = true;
         showToast("🔥 Almost done! You've got this!");
-      } else if (state.timer.remaining === 60) {
+      } else if (remainingSeconds <= 60 && remainingSeconds > 0 && !lastMilestoneCheck.oneMin) {
+        lastMilestoneCheck.oneMin = true;
         showToast("⏰ Final minute! Finish strong! 💪");
       }
       
@@ -1345,8 +1380,22 @@ function runTimer() {
       if (state.timer.remaining <= 0) {
         completeSession();
       }
+    } else if (state.timer.isPaused) {
+      // When paused, still update display but don't recalculate
+      updateTimer();
     }
   }, 1000);
+  
+  // Also sync with background periodically to ensure accuracy
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(() => {
+    if (state.timer.isRunning && !state.timer.isPaused) {
+      syncWithBackground().catch(err => console.log('Sync error:', err));
+    } else {
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = null;
+    }
+  }, 5000); // Sync every 5 seconds
 }
 
 function pauseTimer() {
@@ -1358,6 +1407,18 @@ function pauseTimer() {
     updateTimerLabel('Paused');
     showToast('Take a quick breather! 🌸');
     
+    // Calculate remaining time before pausing
+    if (state.timer.startTime) {
+      const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
+      state.timer.remaining = Math.max(0, (state.timer.duration * 60) - elapsed);
+    }
+    
+    // Stop the timer interval and sync interval
+    if (timerInterval) clearInterval(timerInterval);
+    if (syncInterval) clearInterval(syncInterval);
+    timerInterval = null;
+    syncInterval = null;
+    
     // Tell background to pause
     sendChromeMessage({ action: 'pauseTimer' });
   } else {
@@ -1365,8 +1426,16 @@ function pauseTimer() {
     updateTimerLabel('Focus Time');
     showToast("Let's keep going! 💪");
     
+    // Adjust startTime to account for pause duration
+    // Calculate how much time was remaining when paused
+    const remainingSeconds = state.timer.remaining;
+    state.timer.startTime = Date.now() - ((state.timer.duration * 60 - remainingSeconds) * 1000);
+    
     // Tell background to resume
-    sendChromeMessage({ action: 'resumeTimer' });
+    sendChromeMessage({ action: 'resumeTimer' }, () => {
+      // Restart timer after background confirms
+      runTimer();
+    });
   }
   
   saveState();
@@ -1529,11 +1598,18 @@ function applyStreakBrokenPenalty(lostStreak) {
 
 function resetTimer() {
   if (timerInterval) clearInterval(timerInterval);
+  if (syncInterval) clearInterval(syncInterval);
+  timerInterval = null;
+  syncInterval = null;
+  
+  // Reset completion flag
+  isCompletingSession = false;
   
   state.timer.isRunning = false;
   state.timer.isPaused = false;
   state.timer.remaining = 25 * 60;
   state.timer.duration = 25;
+  state.timer.startTime = null;
   
   saveState();
   
@@ -1547,11 +1623,43 @@ function resetTimer() {
   sendChromeMessage({ action: 'stopTimer' });
 }
 
+// Track if we're currently completing a session to prevent double-completion
+let isCompletingSession = false;
+
 function completeSession() {
+  // Prevent double-completion
+  if (isCompletingSession) {
+    console.log('Session completion already in progress');
+    return;
+  }
+  
+  // Check if timer was actually running (or just completed)
+  const wasRunning = state.timer.isRunning || state.timer.remaining === 0;
+  if (!wasRunning && state.timer.remaining === state.timer.duration * 60) {
+    // Timer was never started or was reset
+    console.log('Timer was not running, cannot complete');
+    return;
+  }
+  
+  isCompletingSession = true;
+  
   if (timerInterval) clearInterval(timerInterval);
   
   const duration = state.timer.duration;
+  
+  // Ensure we have a valid duration
+  if (!duration || duration <= 0) {
+    console.error('Invalid duration for session completion:', duration);
+    isCompletingSession = false;
+    return;
+  }
+  
   const fp = calculateFPReward(duration);
+  
+  // Mark timer as not running to prevent double-completion
+  state.timer.isRunning = false;
+  state.timer.isPaused = false;
+  state.timer.remaining = 0;
   
   // Calculate friendship percentage before awarding
   const prevFP = state.characters[state.currentCharacter].fp;
@@ -1603,6 +1711,11 @@ function completeSession() {
   sendChromeMessage({ action: 'sessionComplete', fp: finalFP });
   
   saveState();
+  
+  // Reset completion flag after a short delay
+  setTimeout(() => {
+    isCompletingSession = false;
+  }, 1000);
 }
 
 function updateStats(duration) {
@@ -1909,7 +2022,9 @@ function checkAchievements() {
   
   const newlyUnlocked = [];
   
-  ACHIEVEMENTS.forEach(achievement => {
+  // Check all achievements except mastery first
+  const regularAchievements = ACHIEVEMENTS.filter(a => a.id !== 'mastery');
+  regularAchievements.forEach(achievement => {
     if (!state.achievements.includes(achievement.id) && achievement.condition(stats)) {
       state.achievements.push(achievement.id);
       
@@ -1924,6 +2039,29 @@ function checkAchievements() {
       newlyUnlocked.push(achievement);
     }
   });
+  
+  // Check mastery achievement (only if all other achievements are unlocked)
+  const masteryAchievement = ACHIEVEMENTS.find(a => a.id === 'mastery');
+  if (masteryAchievement && !state.achievements.includes('mastery')) {
+    // Count how many regular achievements are unlocked
+    const unlockedCount = state.achievements.filter(id => id !== 'mastery').length;
+    const totalRegularAchievements = regularAchievements.length;
+    
+    // If all regular achievements are unlocked, unlock mastery!
+    if (unlockedCount >= totalRegularAchievements) {
+      state.achievements.push('mastery');
+      
+      // Award FP for mastery
+      if (masteryAchievement.fpReward) {
+        state.totalFP += masteryAchievement.fpReward;
+        showFPPopup(masteryAchievement.fpReward);
+        updateHeader();
+      }
+      
+      // Add mastery to queue (should show last)
+      newlyUnlocked.push(masteryAchievement);
+    }
+  }
   
   // Add all newly unlocked achievements to queue
   if (newlyUnlocked.length > 0) {
@@ -2520,11 +2658,11 @@ function switchTab(tabId) {
   if (tabId === 'friends') renderFriendsGrid();
   if (tabId === 'achievements') renderAchievements();
   if (tabId === 'collectibles') {
-    // Set stickers as default tab for collectibles
+    // Set accessories as default tab for collectibles
     document.querySelectorAll('.collect-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.collect === 'stickers');
+      t.classList.toggle('active', t.dataset.collect === 'accessories');
     });
-    renderCollectibles('stickers');
+    renderCollectibles('accessories');
   }
   if (tabId === 'settings') updateStatsDisplay();
   
@@ -2630,6 +2768,7 @@ function syncWithBackground() {
         state.timer.duration = response.completedSession.duration;
         state.timer.remaining = 0;
         state.timer.isRunning = false;
+        state.timer.isPaused = false;
         
         // Save state before completing to ensure consistency
         saveState();
@@ -2638,66 +2777,80 @@ function syncWithBackground() {
         completeSession();
         
         // Clear the completed session from background
-        sendChromeMessage({ action: 'claimSession' });
+        sendChromeMessage({ action: 'claimSession' }, () => {
+          console.log('Completed session claimed');
+        });
         
         resolve();
         return;
       }
+      
+      if (response.isRunning) {
+        console.log('Syncing active timer from background:', response);
         
-        if (response.isRunning) {
-          console.log('Syncing active timer from background:', response);
+        // Calculate actual remaining time from background
+        state.timer.isRunning = response.isRunning;
+        state.timer.isPaused = response.isPaused;
+        state.timer.duration = response.duration;
+        state.timer.startTime = response.startTime;
+        
+        if (!response.isPaused && response.startTime) {
+          // Calculate remaining time based on when timer started
+          const elapsed = Math.floor((Date.now() - response.startTime) / 1000);
+          state.timer.remaining = Math.max(0, (response.duration * 60) - elapsed);
+          console.log('Calculated remaining:', state.timer.remaining, 'seconds');
           
-          // Calculate actual remaining time from background
-          state.timer.isRunning = response.isRunning;
-          state.timer.isPaused = response.isPaused;
-          state.timer.duration = response.duration;
-          state.timer.startTime = response.startTime;
-          
-          if (!response.isPaused && response.startTime) {
-            // Calculate remaining time based on when timer started
-            const elapsed = Math.floor((Date.now() - response.startTime) / 1000);
-            state.timer.remaining = Math.max(0, (response.duration * 60) - elapsed);
-            console.log('Calculated remaining:', state.timer.remaining, 'seconds');
-            
-            // Check if actually completed
-            if (state.timer.remaining <= 0) {
-              state.timer.isRunning = false;
-              completeSession();
-              resolve();
-              return;
-            }
-          } else {
-            state.timer.remaining = response.remaining;
+          // Check if actually completed
+          if (state.timer.remaining <= 0) {
+            state.timer.isRunning = false;
+            state.timer.isPaused = false;
+            completeSession();
+            resolve();
+            return;
           }
-          
-          // Update UI
-          updateTimer();
-          
-          if (state.timer.isRunning) {
-            hideElement('mode-selection');
-            showElement('timer-controls');
-            
-            // Update pause button state
-            const pauseBtn = document.getElementById('pause-btn');
-            if (state.timer.isPaused) {
-              pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
-              updateTimerLabel('Paused');
-            } else {
-              pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
-              updateTimerLabel('Focus Time');
-              runTimer();
-            }
-          }
+        } else {
+          state.timer.remaining = response.remaining || (response.duration * 60);
         }
         
-        resolve();
-      });
+        // Update UI
+        updateTimer();
+        
+        if (state.timer.isRunning) {
+          hideElement('mode-selection');
+          showElement('timer-controls');
+          
+          // Update pause button state
+          const pauseBtn = document.getElementById('pause-btn');
+          if (state.timer.isPaused) {
+            pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
+            updateTimerLabel('Paused');
+            // Don't run timer when paused
+            if (timerInterval) clearInterval(timerInterval);
+          } else {
+            pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+            updateTimerLabel('Focus Time');
+            runTimer();
+          }
+        }
+      } else {
+        // Timer not running - make sure UI is reset
+        if (!state.timer.isRunning) {
+          showElement('mode-selection');
+          hideElement('timer-controls');
+          hideElement('session-complete');
+          if (timerInterval) clearInterval(timerInterval);
+        }
+      }
+      
+      resolve();
     });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ═══════════════════════════════════════════════════════════════════════════════
+
 
 async function init() {
   await loadState();

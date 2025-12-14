@@ -76,7 +76,11 @@ function pauseTimer() {
 function resumeTimer() {
   if (timerState.isRunning && timerState.isPaused) {
     timerState.isPaused = false;
-    timerState.startTime = Date.now() - ((timerState.duration * 60 - timerState.remaining) * 1000);
+    
+    // Calculate how much time has elapsed so far
+    const elapsedBeforePause = (timerState.duration * 60) - timerState.remaining;
+    // Adjust startTime to account for the elapsed time
+    timerState.startTime = Date.now() - (elapsedBeforePause * 1000);
     
     // Reset alarm with remaining time
     const remainingMinutes = timerState.remaining / 60;
@@ -85,7 +89,7 @@ function resumeTimer() {
     });
     
     chrome.alarms.create('timerTick', {
-      periodInMinutes: 1
+      periodInMinutes: 0.5
     });
     
     updateBadge();
@@ -344,23 +348,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'getTimerState':
       // Calculate current remaining time
-      if (timerState.isRunning && !timerState.isPaused) {
+      if (timerState.isRunning && !timerState.isPaused && timerState.startTime) {
         const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
         timerState.remaining = Math.max(0, (timerState.duration * 60) - elapsed);
         
         // Check if timer completed while calculating
-        if (timerState.remaining <= 0) {
+        if (timerState.remaining <= 0 && !timerState.completedSession) {
           timerState.completedSession = {
             duration: timerState.duration,
             completedAt: Date.now()
           };
           timerState.isRunning = false;
+          timerState.remaining = 0;
           chrome.alarms.clear('studyTimer');
           chrome.alarms.clear('timerTick');
           clearBadge();
         }
       }
-      sendResponse(timerState);
+      // Always return the current state, including startTime
+      sendResponse({
+        isRunning: timerState.isRunning,
+        isPaused: timerState.isPaused,
+        duration: timerState.duration,
+        remaining: timerState.remaining,
+        startTime: timerState.startTime,
+        completedSession: timerState.completedSession
+      });
       break;
       
     case 'claimSession':

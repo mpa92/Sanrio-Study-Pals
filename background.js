@@ -17,17 +17,59 @@ let timerState = {
   completedSession: null  // Tracks completed session awaiting claim
 };
 
+// Load timer state from storage on startup
+async function loadTimerState() {
+  try {
+    const result = await chrome.storage.local.get('timerState');
+    if (result.timerState) {
+      const restored = result.timerState;
+      // Validate restored state to prevent corrupted data from causing issues
+      if (typeof restored.isRunning === 'boolean' &&
+          typeof restored.isPaused === 'boolean' &&
+          (restored.duration === undefined || (typeof restored.duration === 'number' && restored.duration > 0 && restored.duration <= 180)) &&
+          (restored.remaining === undefined || (typeof restored.remaining === 'number' && restored.remaining >= 0))) {
+        timerState = { ...timerState, ...restored };
+        console.log('Restored timer state from storage:', timerState);
+      } else {
+        console.warn('Invalid timer state in storage, using defaults:', restored);
+        // Keep default timerState
+      }
+    }
+  } catch (e) {
+    console.error('Error loading timer state:', e);
+  }
+}
+
+// Save timer state to storage
+async function saveTimerState() {
+  try {
+    await chrome.storage.local.set({ timerState: timerState });
+  } catch (e) {
+    console.error('Error saving timer state:', e);
+  }
+}
+
+// Initialize: load state on startup
+loadTimerState();
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ALARM HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Create timer alarm
 function startTimerAlarm(minutes) {
+  // CRITICAL: Clear any existing alarms first to prevent duplicates
+  // This is important if startTimer is called while a timer is already running
+  chrome.alarms.clear('studyTimer');
+  chrome.alarms.clear('timerTick');
+  
   timerState.isRunning = true;
   timerState.isPaused = false;
   timerState.duration = minutes;
   timerState.remaining = minutes * 60;
   timerState.startTime = Date.now();
+  timerState.pausedAt = null;
+  timerState.completedSession = null; // Clear any pending completed session
   
   // Reset milestone notifications for new session
   resetMilestones();
@@ -43,18 +85,24 @@ function startTimerAlarm(minutes) {
   });
   
   updateBadge();
+  saveTimerState(); // Persist state
 }
 
 // Stop timer alarm
 function stopTimerAlarm() {
   timerState.isRunning = false;
   timerState.isPaused = false;
+  timerState.startTime = null;
+  timerState.pausedAt = null;
+  timerState.remaining = 25 * 60;
+  timerState.completedSession = null; // Clear any pending completed session when stopping
   
   chrome.alarms.clear('studyTimer');
   chrome.alarms.clear('timerTick');
   
   clearBadge();
   resetMilestones();
+  saveTimerState(); // Persist state
 }
 
 // Pause timer
@@ -63,12 +111,19 @@ function pauseTimer() {
     timerState.isPaused = true;
     timerState.pausedAt = Date.now();
     
-    // Calculate remaining time
-    const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
-    timerState.remaining = (timerState.duration * 60) - elapsed;
+    // Calculate remaining time - validate startTime and duration
+    if (timerState.startTime && timerState.startTime > 0) {
+      const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
+      const validDuration = timerState.duration || 25;
+      timerState.remaining = Math.max(0, (validDuration * 60) - elapsed);
+    } else {
+      // If startTime is invalid, use the current remaining value
+      console.warn('Invalid startTime when pausing, preserving current remaining time');
+    }
     
     chrome.alarms.clear('studyTimer');
     chrome.alarms.clear('timerTick');
+    saveTimerState(); // Persist paused state
   }
 }
 
@@ -77,22 +132,47 @@ function resumeTimer() {
   if (timerState.isRunning && timerState.isPaused) {
     timerState.isPaused = false;
     
+    // Validate duration and remaining time before calculations
+    const validDuration = timerState.duration || 25;
+    const validRemaining = Math.max(0, Math.min(timerState.remaining, validDuration * 60));
+    
     // Calculate how much time has elapsed so far
-    const elapsedBeforePause = (timerState.duration * 60) - timerState.remaining;
+    const elapsedBeforePause = (validDuration * 60) - validRemaining;
     // Adjust startTime to account for the elapsed time
     timerState.startTime = Date.now() - (elapsedBeforePause * 1000);
+    timerState.pausedAt = null;
+    timerState.remaining = validRemaining; // Update with validated value
+    
+    // Clear any existing alarms first to prevent duplicates
+    chrome.alarms.clear('studyTimer');
+    chrome.alarms.clear('timerTick');
     
     // Reset alarm with remaining time
-    const remainingMinutes = timerState.remaining / 60;
-    chrome.alarms.create('studyTimer', {
-      delayInMinutes: remainingMinutes
-    });
-    
-    chrome.alarms.create('timerTick', {
-      periodInMinutes: 0.5
-    });
+    const remainingMinutes = validRemaining / 60;
+    if (remainingMinutes > 0) {
+      chrome.alarms.create('studyTimer', {
+        delayInMinutes: remainingMinutes
+      });
+      
+      chrome.alarms.create('timerTick', {
+        periodInMinutes: 0.5
+      });
+    } else {
+      // If no time remaining, complete the session
+      timerState.completedSession = {
+        duration: validDuration,
+        completedAt: Date.now()
+      };
+      timerState.isRunning = false;
+      timerState.isPaused = false;
+      clearBadge();
+      // Save state and show notification for completed session
+      saveTimerState();
+      showCompletionNotification();
+    }
     
     updateBadge();
+    saveTimerState(); // Persist state
   }
 }
 
@@ -106,8 +186,15 @@ function updateBadge() {
     return;
   }
   
+  // Validate startTime and duration before calculating
+  if (!timerState.startTime || timerState.startTime <= 0) {
+    clearBadge();
+    return;
+  }
+  
   const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
-  const remaining = Math.max(0, (timerState.duration * 60) - elapsed);
+  const validDuration = timerState.duration || 25;
+  const remaining = Math.max(0, (validDuration * 60) - elapsed);
   const minutes = Math.ceil(remaining / 60);
   
   chrome.action.setBadgeText({ text: `${minutes}m` });
@@ -139,7 +226,20 @@ function resetMilestones() {
   };
 }
 
-function showCompletionNotification() {
+async function showCompletionNotification() {
+  // Check if notifications are enabled in settings
+  try {
+    const result = await chrome.storage.local.get('sanrioStudyPals');
+    const settings = result.sanrioStudyPals?.settings;
+    if (settings && settings.notificationsEnabled === false) {
+      console.log('Notifications disabled, skipping completion notification');
+      resetMilestones();
+      return;
+    }
+  } catch (e) {
+    console.error('Error checking notification settings:', e);
+  }
+  
   try {
     chrome.notifications.create('sessionComplete_' + Date.now(), {
       type: 'basic',
@@ -157,7 +257,19 @@ function showCompletionNotification() {
   resetMilestones();
 }
 
-function showReminderNotification() {
+async function showReminderNotification() {
+  // Check if notifications are enabled in settings
+  try {
+    const result = await chrome.storage.local.get('sanrioStudyPals');
+    const settings = result.sanrioStudyPals?.settings;
+    if (settings && settings.notificationsEnabled === false) {
+      console.log('Notifications disabled, skipping reminder notification');
+      return;
+    }
+  } catch (e) {
+    console.error('Error checking notification settings:', e);
+  }
+  
   chrome.notifications.create('studyReminder', {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
@@ -191,7 +303,19 @@ const milestoneMessages = {
   ]
 };
 
-function showMilestoneNotification(milestone) {
+async function showMilestoneNotification(milestone) {
+  // Check if notifications are enabled in settings
+  try {
+    const result = await chrome.storage.local.get('sanrioStudyPals');
+    const settings = result.sanrioStudyPals?.settings;
+    if (settings && settings.notificationsEnabled === false) {
+      console.log('Notifications disabled, skipping milestone notification');
+      return;
+    }
+  } catch (e) {
+    console.error('Error checking notification settings:', e);
+  }
+  
   try {
     const messages = milestoneMessages[milestone];
     const msg = messages[Math.floor(Math.random() * messages.length)];
@@ -210,7 +334,19 @@ function showMilestoneNotification(milestone) {
   }
 }
 
-function showStreakNotification(type, streakDays) {
+async function showStreakNotification(type, streakDays) {
+  // Check if notifications are enabled in settings
+  try {
+    const result = await chrome.storage.local.get('sanrioStudyPals');
+    const settings = result.sanrioStudyPals?.settings;
+    if (settings && settings.notificationsEnabled === false) {
+      console.log('Notifications disabled, skipping streak notification');
+      return;
+    }
+  } catch (e) {
+    console.error('Error checking notification settings:', e);
+  }
+  
   try {
     let title = '';
     let message = '';
@@ -252,13 +388,148 @@ function showStreakNotification(type, streakDays) {
   }
 }
 
+// Helper function to calculate and return timer state
+function calculateAndReturnTimerState(sendResponse) {
+  // If timer was running (not paused) when browser closed, we need to check if alarms exist
+  // If no alarms exist, the timer was interrupted by browser close - mark as paused
+  if (timerState.isRunning && !timerState.isPaused && timerState.startTime) {
+    // Check if alarms actually exist (they wouldn't if browser was closed)
+    try {
+      // Set a timeout to ensure sendResponse is always called
+      let responseSent = false;
+      const timeoutId = setTimeout(() => {
+        if (!responseSent) {
+          console.warn('Alarm check timeout, returning current state');
+          responseSent = true;
+          sendResponse({
+            isRunning: timerState.isRunning,
+            isPaused: timerState.isPaused,
+            duration: timerState.duration,
+            remaining: timerState.remaining,
+            startTime: timerState.startTime,
+            completedSession: timerState.completedSession
+          });
+        }
+      }, 5000); // 5 second timeout
+      
+      chrome.alarms.getAll((alarms) => {
+        try {
+          if (responseSent) return; // Already sent response due to timeout
+          
+          clearTimeout(timeoutId);
+          responseSent = true;
+          
+          // Handle potential undefined/null alarms
+          const alarmList = alarms || [];
+          const hasTimerAlarm = alarmList.some(a => a && (a.name === 'studyTimer' || a.name === 'timerTick'));
+          
+          if (!hasTimerAlarm) {
+            // Browser was closed while timer was running - pause it to preserve remaining time
+            const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
+            const validDuration = timerState.duration || 25;
+            timerState.remaining = Math.max(0, (validDuration * 60) - elapsed);
+            timerState.isPaused = true;
+            timerState.pausedAt = Date.now();
+            saveTimerState();
+          } else {
+            // Alarms exist, timer is actually running - calculate remaining time normally
+            const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
+            const validDuration = timerState.duration || 25;
+            timerState.remaining = Math.max(0, (validDuration * 60) - elapsed);
+            
+            // Check if timer completed while calculating - verify full duration elapsed
+            const expectedDurationSeconds = validDuration * 60;
+            if (timerState.remaining <= 0 && elapsed >= expectedDurationSeconds && !timerState.completedSession) {
+              timerState.completedSession = {
+                duration: validDuration,
+                completedAt: Date.now()
+              };
+              timerState.isRunning = false;
+              timerState.remaining = 0;
+              chrome.alarms.clear('studyTimer');
+              chrome.alarms.clear('timerTick');
+              clearBadge();
+              saveTimerState();
+            }
+          }
+          
+          // Return state after checking alarms
+          sendResponse({
+            isRunning: timerState.isRunning,
+            isPaused: timerState.isPaused,
+            duration: timerState.duration,
+            remaining: timerState.remaining,
+            startTime: timerState.startTime,
+            completedSession: timerState.completedSession
+          });
+        } catch (error) {
+          // If error occurs, ensure timeout is cleared and response is sent
+          clearTimeout(timeoutId);
+          if (!responseSent) {
+            console.error('Error in alarm check callback:', error);
+            responseSent = true;
+            sendResponse({
+              isRunning: timerState.isRunning,
+              isPaused: timerState.isPaused,
+              duration: timerState.duration,
+              remaining: timerState.remaining,
+              startTime: timerState.startTime,
+              completedSession: timerState.completedSession
+            });
+          }
+        }
+      });
+    } catch (e) {
+      console.error('Error checking alarms:', e);
+      // Fallback: return current state if alarm check fails
+      sendResponse({
+        isRunning: timerState.isRunning,
+        isPaused: timerState.isPaused,
+        duration: timerState.duration,
+        remaining: timerState.remaining,
+        startTime: timerState.startTime,
+        completedSession: timerState.completedSession
+      });
+    }
+  } else if (timerState.isRunning && timerState.isPaused && timerState.pausedAt) {
+    // If paused, remaining time should already be calculated and saved
+    // The remaining time was saved when paused, so we can trust it
+    sendResponse({
+      isRunning: timerState.isRunning,
+      isPaused: timerState.isPaused,
+      duration: timerState.duration,
+      remaining: timerState.remaining,
+      startTime: timerState.startTime,
+      completedSession: timerState.completedSession
+    });
+  } else {
+    // Timer not running
+    sendResponse({
+      isRunning: timerState.isRunning,
+      isPaused: timerState.isPaused,
+      duration: timerState.duration,
+      remaining: timerState.remaining,
+      startTime: timerState.startTime,
+      completedSession: timerState.completedSession
+    });
+  }
+}
+
 function checkMilestones() {
   if (!timerState.isRunning || timerState.isPaused) return;
   
+  // Validate startTime before using it
+  if (!timerState.startTime || timerState.startTime <= 0) {
+    console.warn('Invalid startTime in checkMilestones');
+    return;
+  }
+  
   const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
-  const totalSeconds = timerState.duration * 60;
+  // Validate duration to prevent calculation errors
+  const validDuration = timerState.duration || 25;
+  const totalSeconds = validDuration * 60;
   const remaining = Math.max(0, totalSeconds - elapsed);
-  const progress = elapsed / totalSeconds;
+  const progress = totalSeconds > 0 ? elapsed / totalSeconds : 0;
   
   // Halfway (50%)
   if (progress >= 0.5 && !notifiedMilestones.halfway) {
@@ -293,9 +564,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'studyTimer') {
     // Prevent double notification - only if not already completed
     if (!timerState.completedSession) {
+      // Validate duration before storing completed session
+      const validDuration = timerState.duration || 25;
+      
       // Session complete! Store for claiming when popup opens
       timerState.completedSession = {
-        duration: timerState.duration,
+        duration: validDuration,
         completedAt: Date.now()
       };
       timerState.isRunning = false;
@@ -305,6 +579,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       clearBadge();
       
       chrome.alarms.clear('timerTick');
+      saveTimerState(); // Persist state
       
       console.log('Session completed in background:', timerState.completedSession);
     }
@@ -327,7 +602,14 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
     case 'startTimer':
-      startTimerAlarm(message.duration);
+      // Validate duration before starting timer
+      const duration = message.duration;
+      if (!duration || duration <= 0 || duration > 180 || isNaN(duration)) {
+        console.error('Invalid duration in startTimer:', duration);
+        sendResponse({ success: false, error: 'Invalid duration' });
+        return true;
+      }
+      startTimerAlarm(duration);
       sendResponse({ success: true });
       break;
       
@@ -347,39 +629,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     case 'getTimerState':
-      // Calculate current remaining time
-      if (timerState.isRunning && !timerState.isPaused && timerState.startTime) {
-        const elapsed = Math.floor((Date.now() - timerState.startTime) / 1000);
-        timerState.remaining = Math.max(0, (timerState.duration * 60) - elapsed);
-        
-        // Check if timer completed while calculating
-        if (timerState.remaining <= 0 && !timerState.completedSession) {
-          timerState.completedSession = {
-            duration: timerState.duration,
-            completedAt: Date.now()
-          };
-          timerState.isRunning = false;
-          timerState.remaining = 0;
-          chrome.alarms.clear('studyTimer');
-          chrome.alarms.clear('timerTick');
-          clearBadge();
-        }
-      }
-      // Always return the current state, including startTime
-      sendResponse({
-        isRunning: timerState.isRunning,
-        isPaused: timerState.isPaused,
-        duration: timerState.duration,
-        remaining: timerState.remaining,
-        startTime: timerState.startTime,
-        completedSession: timerState.completedSession
+      // Always try to restore from storage first (in case browser was closed/reopened)
+      // Storage is the source of truth after service worker restarts
+      // This ensures paused timers persist across browser restarts
+      loadTimerState().then(() => {
+        calculateAndReturnTimerState(sendResponse);
+      }).catch((error) => {
+        console.error('Error loading timer state for getTimerState:', error);
+        // Still return current state even if load fails
+        calculateAndReturnTimerState(sendResponse);
       });
-      break;
+      return true; // Keep channel open for async
       
     case 'claimSession':
       // Return and clear completed session
       const session = timerState.completedSession;
       timerState.completedSession = null;
+      saveTimerState(); // Persist state
       sendResponse({ session: session });
       break;
       
@@ -390,8 +656,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     case 'streakNotification':
-      showStreakNotification(message.type, message.streakDays);
+      // Validate parameters
+      const streakType = message.type;
+      const streakDays = message.streakDays;
+      if (streakType && (streakDays === undefined || streakDays < 0 || isNaN(streakDays))) {
+        console.error('Invalid streak notification parameters:', message);
+        sendResponse({ success: false, error: 'Invalid parameters' });
+        return true;
+      }
+      showStreakNotification(streakType, streakDays);
       sendResponse({ success: true });
+      break;
+      
+    default:
+      console.warn('Unknown message action:', message.action);
+      sendResponse({ success: false, error: 'Unknown action' });
       break;
   }
   
@@ -402,9 +681,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // IDLE DETECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-chrome.idle.onStateChanged.addListener((state) => {
+chrome.idle.onStateChanged.addListener(async (state) => {
   if (timerState.isRunning && !timerState.isPaused) {
     if (state === 'idle' || state === 'locked') {
+      // Check if notifications are enabled before showing idle warning
+      try {
+        const result = await chrome.storage.local.get('sanrioStudyPals');
+        const settings = result.sanrioStudyPals?.settings;
+        if (settings && settings.notificationsEnabled === false) {
+          console.log('Notifications disabled, skipping idle warning');
+          return;
+        }
+      } catch (e) {
+        console.error('Error checking notification settings:', e);
+      }
+      
       // User went idle - could pause timer or show notification
       chrome.notifications.create('idleWarning', {
         type: 'basic',

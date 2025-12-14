@@ -621,6 +621,8 @@ const DEFAULT_STATE = {
 let state = { ...DEFAULT_STATE };
 let timerInterval = null;
 let syncInterval = null;
+let idleReactionInterval = null;
+let isSyncing = false; // Prevent concurrent syncs
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STORAGE FUNCTIONS
@@ -636,7 +638,13 @@ async function loadState() {
     } else {
       const saved = localStorage.getItem('sanrioStudyPals');
       if (saved) {
-        state = { ...DEFAULT_STATE, ...JSON.parse(saved) };
+        try {
+          state = { ...DEFAULT_STATE, ...JSON.parse(saved) };
+        } catch (e) {
+          console.error('Error parsing saved state from localStorage:', e);
+          // Use default state if parsing fails
+          state = { ...DEFAULT_STATE };
+        }
       }
     }
     
@@ -672,7 +680,9 @@ async function loadState() {
     }
     
   } catch (e) {
-    console.log('Using default state');
+    console.error('Error loading state, using default:', e);
+    // Use default state on error
+    state = { ...DEFAULT_STATE };
   }
   return state;
 }
@@ -709,12 +719,26 @@ function getFriendshipLevel(percent) {
 }
 
 function getRandomDialogue(character, level) {
+  // Validate character exists
+  if (!CHARACTERS[character] || !CHARACTERS[character].dialogues) {
+    return "Let's study together!";
+  }
   const dialogues = CHARACTERS[character].dialogues[level] || CHARACTERS[character].dialogues[1];
+  if (!dialogues || !Array.isArray(dialogues) || dialogues.length === 0) {
+    return "Let's study together!";
+  }
   return dialogues[Math.floor(Math.random() * dialogues.length)];
 }
 
 function getRandomEmote(character) {
+  // Validate character exists
+  if (!CHARACTERS[character] || !CHARACTERS[character].emotes) {
+    return '✨';
+  }
   const emotes = CHARACTERS[character].emotes;
+  if (!Array.isArray(emotes) || emotes.length === 0) {
+    return '✨';
+  }
   return emotes[Math.floor(Math.random() * emotes.length)];
 }
 
@@ -732,12 +756,16 @@ function isSameDay(date1, date2) {
   if (!date1 || !date2) return false;
   const d1 = new Date(date1);
   const d2 = new Date(date2);
+  // Validate dates are valid
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return false;
   return d1.toDateString() === d2.toDateString();
 }
 
 function isYesterday(dateStr) {
   if (!dateStr) return false;
   const date = new Date(dateStr);
+  // Validate date is valid
+  if (isNaN(date.getTime())) return false;
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   return date.toDateString() === yesterday.toDateString();
@@ -749,17 +777,30 @@ function isYesterday(dateStr) {
 
 function updateTheme(themeName) {
   const app = document.getElementById('app');
-  app.className = `theme-${themeName}`;
+  if (app) {
+    app.className = `theme-${themeName}`;
+  }
   state.theme = themeName;
   saveState();
+  
+  // Reapply wallpaper when theme changes to ensure it's visible with new theme colors
+  // This ensures wallpaper works properly with all themes
+  applyWallpaper();
 }
 
 function updateHeader() {
-  document.getElementById('total-fp').textContent = state.totalFP;
-  document.getElementById('streak-count').textContent = state.stats.currentStreak;
+  const totalFPEl = document.getElementById('total-fp');
+  const streakCountEl = document.getElementById('streak-count');
+  if (totalFPEl) totalFPEl.textContent = state.totalFP;
+  if (streakCountEl) streakCountEl.textContent = state.stats.currentStreak;
 }
 
 function updateCharacterDisplay() {
+  // Validate current character exists
+  if (!CHARACTERS[state.currentCharacter] || !state.characters[state.currentCharacter]) {
+    console.warn('Invalid current character, using default');
+    state.currentCharacter = Object.keys(CHARACTERS)[0] || 'cinnamoroll';
+  }
   const character = CHARACTERS[state.currentCharacter];
   const charData = state.characters[state.currentCharacter];
   // Use 1 decimal place for more accurate progress display
@@ -769,57 +810,70 @@ function updateCharacterDisplay() {
   
   // Update sprite - try image first, fallback to emoji
   const spriteEl = document.getElementById('character-sprite');
-  if (character.image) {
-    const img = new Image();
-    img.src = character.image;
-    img.alt = character.name;
-    img.onerror = () => {
-      // Fallback to emoji if image fails to load
+  if (spriteEl) {
+    if (character.image) {
+      const img = new Image();
+      img.src = character.image;
+      img.alt = character.name;
+      img.onerror = () => {
+        // Fallback to emoji if image fails to load
+        spriteEl.innerHTML = `<span class="emoji-fallback">${character.sprite}</span>`;
+      };
+      img.onload = () => {
+        spriteEl.innerHTML = '';
+        spriteEl.appendChild(img);
+      };
+      // Show emoji while loading
       spriteEl.innerHTML = `<span class="emoji-fallback">${character.sprite}</span>`;
-    };
-    img.onload = () => {
-      spriteEl.innerHTML = '';
-      spriteEl.appendChild(img);
-    };
-    // Show emoji while loading
-    spriteEl.innerHTML = `<span class="emoji-fallback">${character.sprite}</span>`;
-  } else {
-    spriteEl.innerHTML = `<span class="emoji-fallback">${character.sprite}</span>`;
+    } else {
+      spriteEl.innerHTML = `<span class="emoji-fallback">${character.sprite}</span>`;
+    }
   }
   
   // Update dialogue
-  document.getElementById('dialogue-name').textContent = character.name;
-  document.getElementById('dialogue-text').textContent = getRandomDialogue(state.currentCharacter, level.level);
+  const dialogueNameEl = document.getElementById('dialogue-name');
+  const dialogueTextEl = document.getElementById('dialogue-text');
+  if (dialogueNameEl) dialogueNameEl.textContent = character.name;
+  if (dialogueTextEl) dialogueTextEl.textContent = getRandomDialogue(state.currentCharacter, level.level);
   
   // Update friendship display
-  document.getElementById('friendship-level').textContent = `Lv. ${level.level} - ${level.name}`;
-  document.getElementById('friendship-fill').style.width = `${percent}%`;
-  document.getElementById('friendship-percent').textContent = percent;
+  const friendshipLevelEl = document.getElementById('friendship-level');
+  const friendshipFillEl = document.getElementById('friendship-fill');
+  const friendshipPercentEl = document.getElementById('friendship-percent');
+  if (friendshipLevelEl) friendshipLevelEl.textContent = `Lv. ${level.level} - ${level.name}`;
+  if (friendshipFillEl) friendshipFillEl.style.width = `${percent}%`;
+  if (friendshipPercentEl) friendshipPercentEl.textContent = percent;
 }
 
 function updateTimer() {
-  document.getElementById('timer-time').textContent = formatTime(state.timer.remaining);
+  const timerTimeEl = document.getElementById('timer-time');
+  if (timerTimeEl) timerTimeEl.textContent = formatTime(state.timer.remaining);
   
   // Update progress ring
   const progress = document.getElementById('timer-progress');
-  const circumference = 2 * Math.PI * 90;
-  const totalSeconds = state.timer.duration * 60;
-  const elapsed = totalSeconds - state.timer.remaining;
-  const offset = (elapsed / totalSeconds) * circumference;
-  progress.style.strokeDasharray = circumference;
-  progress.style.strokeDashoffset = circumference - offset;
+  if (progress) {
+    const circumference = 2 * Math.PI * 90;
+    const totalSeconds = (state.timer.duration || 25) * 60; // Prevent division by zero
+    const elapsed = Math.max(0, totalSeconds - state.timer.remaining);
+    const offset = totalSeconds > 0 ? (elapsed / totalSeconds) * circumference : 0;
+    progress.style.strokeDasharray = circumference;
+    progress.style.strokeDashoffset = circumference - offset;
+  }
 }
 
 function updateTimerLabel(label) {
-  document.getElementById('timer-label').textContent = label;
+  const timerLabelEl = document.getElementById('timer-label');
+  if (timerLabelEl) timerLabelEl.textContent = label;
 }
 
 function showElement(id) {
-  document.getElementById(id).style.display = '';
+  const el = document.getElementById(id);
+  if (el) el.style.display = '';
 }
 
 function hideElement(id) {
-  document.getElementById(id).style.display = 'none';
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
 }
 
 function showEmote(emote) {
@@ -864,6 +918,13 @@ function showSanrioModal(options = {}) {
     const confirmBtn = document.getElementById('modal-confirm');
     const cancelBtn = document.getElementById('modal-cancel');
     
+    // Check if all required elements exist (popup might be closed)
+    if (!overlay || !modal || !character || !title || !message || !confirmBtn || !cancelBtn) {
+      console.warn('Modal elements not found, resolving with false');
+      resolve(false);
+      return;
+    }
+    
     // Set content
     character.textContent = options.character || '🎀';
     title.textContent = options.title || 'Are you sure?';
@@ -888,7 +949,9 @@ function showSanrioModal(options = {}) {
 
 function hideModal(result) {
   const overlay = document.getElementById('sanrio-modal-overlay');
-  overlay.classList.remove('show');
+  if (overlay) {
+    overlay.classList.remove('show');
+  }
   if (modalResolve) {
     modalResolve(result);
     modalResolve = null;
@@ -911,6 +974,11 @@ function initModal() {
 function updateGreetingBanner() {
   const hour = new Date().getHours();
   const banner = document.getElementById('greeting-banner');
+  // Validate current character exists
+  if (!CHARACTERS[state.currentCharacter]) {
+    console.warn('Invalid current character in updateGreetingBanner, using default');
+    state.currentCharacter = Object.keys(CHARACTERS)[0] || 'cinnamoroll';
+  }
   const character = CHARACTERS[state.currentCharacter];
   
   let greeting, emoji;
@@ -943,6 +1011,10 @@ function updateGreetingBanner() {
 // Confetti celebration
 function showConfetti() {
   const container = document.getElementById('confetti-container');
+  if (!container) {
+    console.warn('Confetti container not found');
+    return;
+  }
   const colors = ['#ff6b9d', '#7fc4d6', '#ffd966', '#b794e0', '#ffb5ba', '#a8d8ea'];
   const emojis = ['⭐', '💖', '✨', '🌟', '💕', '🎀', '🌸'];
   
@@ -966,11 +1038,18 @@ function showFPPopup(amount) {
   const popup = document.getElementById('fp-popup');
   const amountEl = document.getElementById('fp-popup-amount');
   
+  if (!popup || !amountEl) {
+    console.warn('FP popup elements not found');
+    return;
+  }
+  
   amountEl.textContent = `+${amount}`;
   popup.classList.add('show');
   
   setTimeout(() => {
-    popup.classList.remove('show');
+    if (popup) {
+      popup.classList.remove('show');
+    }
   }, 2000);
 }
 
@@ -1003,6 +1082,10 @@ function showEncouragement() {
 // Update streak badge with fire effect
 function updateStreakBadge() {
   const streakBadge = document.querySelector('.streak-badge');
+  if (!streakBadge) {
+    console.warn('Streak badge element not found');
+    return;
+  }
   if (state.stats.currentStreak >= 3) {
     streakBadge.classList.add('on-fire');
   } else {
@@ -1030,7 +1113,11 @@ function celebrateLevelUp(newLevel) {
 
 // Random character reactions during idle
 function startIdleReactions() {
-  setInterval(() => {
+  // Clear existing interval to prevent memory leaks
+  if (idleReactionInterval) {
+    clearInterval(idleReactionInterval);
+  }
+  idleReactionInterval = setInterval(() => {
     if (!state.timer.isRunning) {
       const random = Math.random();
       if (random < 0.15) {
@@ -1098,6 +1185,11 @@ function closeDecorateMode() {
 
 function renderStickerTray() {
   const container = document.getElementById('sticker-tray-items');
+  if (!container) {
+    console.warn('Sticker tray container not found');
+    return;
+  }
+  
   const ownedStickers = state.collectibles.filter(id => id.startsWith('st_'));
   
   if (ownedStickers.length === 0) {
@@ -1105,13 +1197,14 @@ function renderStickerTray() {
     return;
   }
   
+  const stickers = COLLECTIBLES.stickers || [];
   container.innerHTML = ownedStickers.map(stickerId => {
-    const sticker = COLLECTIBLES.stickers.find(s => s.id === stickerId);
+    const sticker = stickers.find(s => s.id === stickerId);
     if (!sticker) return '';
     return `<div class="sticker-tray-item" data-sticker="${sticker.icon}" title="${sticker.name}">${sticker.icon}</div>`;
   }).join('');
   
-  // Add click handlers
+  // Add click handlers (event listeners are automatically removed when innerHTML is set)
   container.querySelectorAll('.sticker-tray-item:not(.empty)').forEach(item => {
     item.addEventListener('click', () => {
       const icon = item.dataset.sticker;
@@ -1122,6 +1215,10 @@ function renderStickerTray() {
 
 function placeSticker(icon) {
   const scene = document.getElementById('character-scene');
+  if (!scene) {
+    console.warn('Character scene not found');
+    return;
+  }
   const rect = scene.getBoundingClientRect();
   
   // Place in random position within scene
@@ -1145,6 +1242,10 @@ function placeSticker(icon) {
 
 function renderPlacedStickers() {
   const container = document.getElementById('placed-stickers');
+  if (!container) {
+    console.warn('Placed stickers container not found');
+    return;
+  }
   
   container.innerHTML = state.placedStickers.map(sticker => {
     return `<span class="placed-sticker" 
@@ -1174,6 +1275,10 @@ function startDragSticker(e) {
   e.preventDefault();
   const el = e.target;
   const scene = document.getElementById('character-scene');
+  if (!scene) {
+    console.warn('Character scene not found');
+    return;
+  }
   const rect = scene.getBoundingClientRect();
   
   draggedSticker = {
@@ -1200,6 +1305,10 @@ function dragSticker(e) {
   
   e.preventDefault();
   const scene = document.getElementById('character-scene');
+  if (!scene) {
+    stopDragSticker(e);
+    return;
+  }
   const rect = scene.getBoundingClientRect();
   
   const clientX = e.clientX || e.touches[0].clientX;
@@ -1307,6 +1416,44 @@ function initStickerDecorating() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function startTimer(minutes) {
+  // Validate minutes input
+  if (!minutes || minutes <= 0 || minutes > 180) {
+    console.error('Invalid timer duration:', minutes);
+    showToast('Please enter a valid duration (1-180 minutes)');
+    return;
+  }
+  
+  // CRITICAL: Stop any existing timer before starting a new one
+  // This prevents conflicts if startTimer is called while a timer is already running
+  if (state.timer.isRunning || timerInterval || syncInterval) {
+    console.log('Stopping existing timer before starting new one');
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    if (syncInterval) {
+      clearInterval(syncInterval);
+      syncInterval = null;
+    }
+    // Notify background to stop existing timer and wait for confirmation
+    // This prevents race conditions where startTimer is sent before stopTimer completes
+    sendChromeMessage({ action: 'stopTimer' }, (response, error) => {
+      if (error) {
+        console.error('Failed to stop timer:', error);
+        // Still try to start new timer even if stop failed
+      }
+      // After stopTimer completes (or fails), start the new timer
+      startNewTimer(minutes);
+    });
+    return; // Exit early, startNewTimer will handle the rest
+  }
+  
+  // No existing timer, start immediately
+  startNewTimer(minutes);
+}
+
+// Helper function to actually start the timer (called after stopTimer completes if needed)
+function startNewTimer(minutes) {
   state.timer.duration = minutes;
   state.timer.remaining = minutes * 60;
   state.timer.isRunning = true;
@@ -1322,10 +1469,23 @@ function startTimer(minutes) {
   updateTimerLabel('Focus Time');
   
   // Update button text
-  document.getElementById('pause-btn').innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+  const pauseBtn = document.getElementById('pause-btn');
+  if (pauseBtn) {
+    pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+  }
   
   // Notify background FIRST to ensure it has the correct startTime
-  sendChromeMessage({ action: 'startTimer', duration: minutes }, () => {
+  sendChromeMessage({ action: 'startTimer', duration: minutes }, (response, error) => {
+    if (error || (response && response.success === false)) {
+      console.error('Failed to start timer in background:', error || response?.error);
+      // Revert UI state if start failed
+      state.timer.isRunning = false;
+      state.timer.isPaused = false;
+      showElement('mode-selection');
+      hideElement('timer-controls');
+      showToast('Failed to start timer. Please try again.');
+      return;
+    }
     // Start interval after background confirms
     runTimer();
   });
@@ -1336,13 +1496,17 @@ function startTimer(minutes) {
 }
 
 function runTimer() {
-  if (timerInterval) clearInterval(timerInterval);
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
   
   // Track last milestone times to prevent duplicate notifications
   let lastMilestoneCheck = {
     halfway: false,
     quarterLeft: false,
-    oneMin: false
+    oneMin: false,
+    fiveMinReaction: null // Track last 5-minute mark we reacted at
   };
   
   timerInterval = setInterval(() => {
@@ -1350,19 +1514,25 @@ function runTimer() {
       // Recalculate remaining time from startTime to prevent drift
       // This ensures accuracy even if the popup was minimized
       const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
-      const totalSeconds = state.timer.duration * 60;
+      // Validate duration to prevent calculation errors
+      const validDuration = state.timer.duration || 25;
+      const totalSeconds = validDuration * 60;
       state.timer.remaining = Math.max(0, totalSeconds - elapsed);
       
       updateTimer();
       
-      // Random character reactions every 5 minutes
-      if (state.timer.remaining > 0 && state.timer.remaining % 300 === 0) {
+      // Random character reactions every 5 minutes (300 seconds)
+      // Check if we've crossed a 5-minute boundary
+      const currentFiveMinMark = Math.floor(elapsed / 300);
+      if (state.timer.remaining > 0 && lastMilestoneCheck.fiveMinReaction !== currentFiveMinMark && currentFiveMinMark > 0) {
+        lastMilestoneCheck.fiveMinReaction = currentFiveMinMark;
         showEmote(getRandomEmote(state.currentCharacter));
         showEncouragement();
       }
       
       // Milestone encouragements (only show once per milestone)
-      const progress = elapsed / totalSeconds;
+      // Prevent division by zero
+      const progress = totalSeconds > 0 ? elapsed / totalSeconds : 0;
       const remainingSeconds = state.timer.remaining;
       
       if (progress >= 0.5 && !lastMilestoneCheck.halfway) {
@@ -1376,9 +1546,23 @@ function runTimer() {
         showToast("⏰ Final minute! Finish strong! 💪");
       }
       
-      // Complete!
+      // Complete! But verify we've actually run for the full duration
       if (state.timer.remaining <= 0) {
-        completeSession();
+        // Double-check: ensure we've actually elapsed the full duration
+        const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
+        // Validate duration before using it
+        const validDuration = state.timer.duration || 25;
+        const expectedDurationSeconds = validDuration * 60;
+        
+        // Only complete if we've actually run for the full expected duration
+        // This prevents early completion when duration gets changed incorrectly
+        if (elapsed >= expectedDurationSeconds) {
+          completeSession();
+        } else {
+          console.warn('Timer completion prevented in runTimer - elapsed:', Math.floor(elapsed/60), 'min, expected:', validDuration, 'min');
+          // Reset remaining to prevent this check from running constantly
+          state.timer.remaining = expectedDurationSeconds - elapsed;
+        }
       }
     } else if (state.timer.isPaused) {
       // When paused, still update display but don't recalculate
@@ -1387,30 +1571,55 @@ function runTimer() {
   }, 1000);
   
   // Also sync with background periodically to ensure accuracy
+  // Only create sync interval if timer is actually running and not paused
+  // This prevents creating unnecessary intervals that immediately clear themselves
   if (syncInterval) clearInterval(syncInterval);
-  syncInterval = setInterval(() => {
-    if (state.timer.isRunning && !state.timer.isPaused) {
-      syncWithBackground().catch(err => console.log('Sync error:', err));
-    } else {
-      if (syncInterval) clearInterval(syncInterval);
-      syncInterval = null;
-    }
-  }, 5000); // Sync every 5 seconds
+  if (state.timer.isRunning && !state.timer.isPaused) {
+    syncInterval = setInterval(() => {
+      if (state.timer.isRunning && !state.timer.isPaused) {
+        syncWithBackground().catch(err => console.log('Sync error:', err));
+      } else {
+        if (syncInterval) {
+          clearInterval(syncInterval);
+          syncInterval = null;
+        }
+      }
+    }, 5000); // Sync every 5 seconds
+  } else {
+    syncInterval = null;
+  }
 }
 
 function pauseTimer() {
+  // Only allow pausing if timer is actually running
+  if (!state.timer.isRunning) {
+    console.warn('Cannot pause timer - timer is not running');
+    return;
+  }
+  
+  // Prevent rapid clicking - if already in the desired state, do nothing
+  // This prevents state mismatches from rapid button clicks
+  const wantsToPause = !state.timer.isPaused;
+  if (wantsToPause === state.timer.isPaused) {
+    console.log('Timer already in desired state, ignoring click');
+    return;
+  }
+  
   state.timer.isPaused = !state.timer.isPaused;
   
   const pauseBtn = document.getElementById('pause-btn');
   if (state.timer.isPaused) {
-    pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
+    if (pauseBtn) {
+      pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
+    }
     updateTimerLabel('Paused');
     showToast('Take a quick breather! 🌸');
     
     // Calculate remaining time before pausing
-    if (state.timer.startTime) {
+    if (state.timer.startTime && state.timer.startTime > 0) {
       const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
-      state.timer.remaining = Math.max(0, (state.timer.duration * 60) - elapsed);
+      const validDuration = state.timer.duration || 25;
+      state.timer.remaining = Math.max(0, (validDuration * 60) - elapsed);
     }
     
     // Stop the timer interval and sync interval
@@ -1420,21 +1629,50 @@ function pauseTimer() {
     syncInterval = null;
     
     // Tell background to pause
-    sendChromeMessage({ action: 'pauseTimer' });
+    sendChromeMessage({ action: 'pauseTimer' }, (response, error) => {
+      if (error || (response && response.success === false)) {
+        console.error('Failed to pause timer in background:', error || response?.error);
+        // Revert UI state if pause failed
+        state.timer.isPaused = false;
+        if (pauseBtn) {
+          pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+        }
+        updateTimerLabel('Focus Time');
+        showToast('Failed to pause timer. Please try again.');
+      }
+    });
   } else {
-    pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+    if (pauseBtn) {
+      pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+    }
     updateTimerLabel('Focus Time');
     showToast("Let's keep going! 💪");
     
-    // Adjust startTime to account for pause duration
-    // Calculate how much time was remaining when paused
-    const remainingSeconds = state.timer.remaining;
-    state.timer.startTime = Date.now() - ((state.timer.duration * 60 - remainingSeconds) * 1000);
-    
-    // Tell background to resume
-    sendChromeMessage({ action: 'resumeTimer' }, () => {
-      // Restart timer after background confirms
-      runTimer();
+    // Tell background to resume FIRST, then update local state after confirmation
+    // This ensures state consistency if resume fails
+    sendChromeMessage({ action: 'resumeTimer' }, (response) => {
+      if (response && response.success !== false) {
+        // Adjust startTime to account for pause duration
+        // Calculate how much time was remaining when paused
+        // CRITICAL: Ensure remainingSeconds is valid and doesn't exceed duration
+        // Also validate duration to prevent calculation errors
+        const validDuration = state.timer.duration || 25;
+        const remainingSeconds = Math.max(0, Math.min(state.timer.remaining, validDuration * 60));
+        const elapsedBeforePause = (validDuration * 60) - remainingSeconds;
+        // Adjust startTime to account for the elapsed time before pause
+        state.timer.startTime = Date.now() - (elapsedBeforePause * 1000);
+        
+        // Restart timer after background confirms
+        runTimer();
+      } else {
+        // Resume failed, revert pause state
+        console.error('Failed to resume timer, reverting to paused state');
+        state.timer.isPaused = true;
+        if (pauseBtn) {
+          pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
+        }
+        updateTimerLabel('Paused');
+      }
     });
   }
   
@@ -1442,9 +1680,10 @@ function pauseTimer() {
 }
 
 async function stopTimer() {
-  const elapsedMinutes = Math.floor((state.timer.duration * 60 - state.timer.remaining) / 60);
-  const totalMinutes = state.timer.duration;
-  const percentComplete = elapsedMinutes / totalMinutes;
+  // Validate duration to prevent division by zero
+  const totalMinutes = state.timer.duration || 25;
+  const elapsedMinutes = Math.floor((totalMinutes * 60 - state.timer.remaining) / 60);
+  const percentComplete = totalMinutes > 0 ? elapsedMinutes / totalMinutes : 0;
   
   let character = '😿';
   let title = 'End session early?';
@@ -1486,6 +1725,11 @@ async function stopTimer() {
 }
 
 function applyEarlyEndPenalty(percentComplete, elapsedMinutes) {
+  // Validate current character exists
+  if (!CHARACTERS[state.currentCharacter]) {
+    console.warn('Invalid current character in applyEarlyEndPenalty, using default');
+    state.currentCharacter = Object.keys(CHARACTERS)[0] || 'cinnamoroll';
+  }
   const character = CHARACTERS[state.currentCharacter];
   
   if (percentComplete < 0.25) {
@@ -1528,6 +1772,11 @@ function loseFriendship(percent) {
 }
 
 function applyStreakBrokenPenalty(lostStreak) {
+  // Validate current character exists
+  if (!CHARACTERS[state.currentCharacter]) {
+    console.warn('Invalid current character in applyStreakBrokenPenalty, using default');
+    state.currentCharacter = Object.keys(CHARACTERS)[0] || 'cinnamoroll';
+  }
   const character = CHARACTERS[state.currentCharacter];
   
   // Penalty scales with how big the streak was
@@ -1585,22 +1834,29 @@ function applyStreakBrokenPenalty(lostStreak) {
   });
   
   // Show warning after a delay
+  // Check if modal elements exist before showing (popup might be closed)
   setTimeout(() => {
-    showSanrioModal({
-      character: lostStreak >= 7 ? '💔' : '😢',
-      title: 'Streak Lost!',
-      message: message,
-      confirmText: 'I\'ll do better!',
-      showCancel: false
-    });
+    const modal = document.getElementById('sanrio-modal');
+    if (modal) {
+      showSanrioModal({
+        character: lostStreak >= 7 ? '💔' : '😢',
+        title: 'Streak Lost!',
+        message: message,
+        confirmText: 'I\'ll do better!',
+        showCancel: false
+      });
+    }
   }, 500);
 }
 
 function resetTimer() {
   if (timerInterval) clearInterval(timerInterval);
   if (syncInterval) clearInterval(syncInterval);
+  if (idleReactionInterval) clearInterval(idleReactionInterval);
+  // Note: accessoryTimerInterval is intentionally not cleared here as it's independent of the timer
   timerInterval = null;
   syncInterval = null;
+  idleReactionInterval = null;
   
   // Reset completion flag
   isCompletingSession = false;
@@ -1635,7 +1891,8 @@ function completeSession() {
   
   // Check if timer was actually running (or just completed)
   const wasRunning = state.timer.isRunning || state.timer.remaining === 0;
-  if (!wasRunning && state.timer.remaining === state.timer.duration * 60) {
+  const validDuration = state.timer.duration || 25;
+  if (!wasRunning && state.timer.remaining === validDuration * 60) {
     // Timer was never started or was reset
     console.log('Timer was not running, cannot complete');
     return;
@@ -1643,9 +1900,40 @@ function completeSession() {
   
   isCompletingSession = true;
   
-  if (timerInterval) clearInterval(timerInterval);
+  // Clear intervals immediately to prevent race conditions
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  if (syncInterval) {
+    clearInterval(syncInterval);
+  }
+  syncInterval = null;
   
-  const duration = state.timer.duration;
+  // CRITICAL: Use the duration that was set when the timer started
+  // Verify that we've actually run for the full duration before completing
+  let duration = state.timer.duration;
+  
+  // If we have a startTime, verify we've actually completed the full duration
+  if (state.timer.startTime && state.timer.startTime > 0) {
+    const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
+    const elapsedMinutes = Math.floor(elapsed / 60);
+    const expectedDurationSeconds = duration * 60;
+    
+    // Only allow completion if we've actually run for at least the expected duration
+    // This prevents early completion bugs
+    if (elapsed < expectedDurationSeconds) {
+      console.warn('Timer completion prevented - not enough time elapsed. Elapsed:', elapsedMinutes, 'min, Expected:', duration, 'min');
+      isCompletingSession = false;
+      // Restart timer if it was still supposed to be running
+      if (state.timer.isRunning && !state.timer.isPaused) {
+        runTimer();
+      }
+      return;
+    }
+    
+    console.log('Session completion verified - elapsed:', elapsedMinutes, 'minutes, duration:', duration);
+  }
   
   // Ensure we have a valid duration
   if (!duration || duration <= 0) {
@@ -1691,15 +1979,29 @@ function completeSession() {
   const totalMultiplier = streakMultiplier + accessoryBonus;
   const finalFP = Math.floor(fp * totalMultiplier);
   
-  document.getElementById('reward-fp').textContent = `+${finalFP} FP`;
-  document.getElementById('reward-friendship').textContent = `+${friendshipGained}% Friendship`;
+  const rewardFPEl = document.getElementById('reward-fp');
+  const rewardFriendshipEl = document.getElementById('reward-friendship');
+  if (rewardFPEl) rewardFPEl.textContent = `+${finalFP} FP`;
+  if (rewardFriendshipEl) rewardFriendshipEl.textContent = `+${friendshipGained}% Friendship`;
   
   // Update streak progress display
   updateStreakProgress(duration);
   
+  // Validate current character exists
+  if (!CHARACTERS[state.currentCharacter] || !state.characters[state.currentCharacter]) {
+    console.warn('Invalid current character in completeSession, using default');
+    state.currentCharacter = Object.keys(CHARACTERS)[0] || 'cinnamoroll';
+    // Ensure character data exists
+    if (!state.characters[state.currentCharacter]) {
+      state.characters[state.currentCharacter] = { fp: 0, unlocked: true };
+    }
+  }
   const character = CHARACTERS[state.currentCharacter];
   const level = getFriendshipLevel(Math.min(100, Math.floor((state.characters[state.currentCharacter].fp / 500) * 100)));
-  document.getElementById('complete-message').textContent = getRandomDialogue(state.currentCharacter, level.level);
+  const completeMessageEl = document.getElementById('complete-message');
+  if (completeMessageEl) {
+    completeMessageEl.textContent = getRandomDialogue(state.currentCharacter, level.level);
+  }
   
   showElement('session-complete');
   
@@ -1740,14 +2042,25 @@ function updateStats(duration) {
   
   if (wasNewDay) {
     // New day - save yesterday's minutes and check streak
-    state.stats.yesterdayMinutes = state.stats.dailyMinutes;
+    // CRITICAL: Save yesterday's minutes BEFORE resetting, but AFTER checking if it was valid
+    const yesterdayMinutes = state.stats.dailyMinutes || 0;
+    state.stats.yesterdayMinutes = yesterdayMinutes;
     
     // Check if yesterday met the requirement
     if (state.stats.lastSessionDate) {
       const lastDate = new Date(state.stats.lastSessionDate);
-      if (isYesterday(state.stats.lastSessionDate)) {
+      // Validate date is valid before using it
+      if (isNaN(lastDate.getTime())) {
+        console.warn('Invalid lastSessionDate, resetting:', state.stats.lastSessionDate);
+        state.stats.lastSessionDate = null;
+        // If date is invalid, we can't determine streak status, so reset streak to be safe
+        if (state.stats.currentStreak > 0) {
+          applyStreakBrokenPenalty(state.stats.currentStreak);
+          state.stats.currentStreak = 0;
+        }
+      } else if (isYesterday(state.stats.lastSessionDate)) {
         // Yesterday was the last session day - check if they reached 2 hours
-        if (state.stats.yesterdayMinutes < STREAK_REQUIREMENT) {
+        if (yesterdayMinutes < STREAK_REQUIREMENT) {
           // Didn't reach 2 hours yesterday - streak broken
           if (state.stats.currentStreak > 0) {
             const lostStreak = state.stats.currentStreak;
@@ -1765,7 +2078,7 @@ function updateStats(duration) {
       }
     }
     
-    // Reset for new day
+    // Reset for new day - this session's duration will be added below
     state.stats.todayDate = today;
     state.stats.sessionsToday = 0;
     state.stats.dailyMinutes = 0;
@@ -1781,7 +2094,18 @@ function updateStats(duration) {
     // User has reached 2 hours today - can start/continue streak
     let streakEvent = null; // Track what happened: 'started', 'continued', or null
     
-    if (!state.stats.lastSessionDate) {
+    // Validate lastSessionDate before using it
+    let lastSessionDateValid = false;
+    if (state.stats.lastSessionDate) {
+      const testDate = new Date(state.stats.lastSessionDate);
+      lastSessionDateValid = !isNaN(testDate.getTime());
+      if (!lastSessionDateValid) {
+        console.warn('Invalid lastSessionDate in streak logic, resetting:', state.stats.lastSessionDate);
+        state.stats.lastSessionDate = null;
+      }
+    }
+    
+    if (!state.stats.lastSessionDate || !lastSessionDateValid) {
       // First time - start streak
       state.stats.currentStreak = 1;
       state.stats.lastSessionDate = now.toISOString();
@@ -2078,6 +2402,10 @@ function checkAchievements() {
 
 function renderAchievements() {
   const grid = document.getElementById('achievements-grid');
+  if (!grid) {
+    console.warn('Achievements grid not found');
+    return;
+  }
   grid.innerHTML = ACHIEVEMENTS.map(achievement => {
     const unlocked = state.achievements.includes(achievement.id);
     return `
@@ -2100,7 +2428,15 @@ function renderAchievements() {
 
 function renderCollectibles(category = 'accessories') {
   const grid = document.getElementById('collectibles-grid');
+  if (!grid) {
+    console.warn('Collectibles grid not found');
+    return;
+  }
   const items = COLLECTIBLES[category];
+  if (!items || !Array.isArray(items)) {
+    console.warn('Invalid collectibles category:', category);
+    return;
+  }
   
   // Special rendering for accessories (shop items)
   if (category === 'accessories') {
@@ -2164,7 +2500,15 @@ function renderCollectibles(category = 'accessories') {
 // Render accessory shop with temporary boost items
 function renderAccessoryShop() {
   const grid = document.getElementById('collectibles-grid');
+  if (!grid) {
+    console.warn('Collectibles grid not found in renderAccessoryShop');
+    return;
+  }
   const accessories = COLLECTIBLES.accessories;
+  if (!accessories || !Array.isArray(accessories)) {
+    console.warn('Accessories not found or invalid');
+    return;
+  }
   
   // Check if there's an active boost
   const now = Date.now();
@@ -2219,7 +2563,8 @@ function renderAccessoryShop() {
 
 // Purchase an accessory boost
 async function purchaseAccessoryBoost(accessoryId) {
-  const accessory = COLLECTIBLES.accessories.find(a => a.id === accessoryId);
+  const accessories = COLLECTIBLES.accessories || [];
+  const accessory = accessories.find(a => a.id === accessoryId);
   if (!accessory) return;
   
   // Can't afford
@@ -2231,7 +2576,8 @@ async function purchaseAccessoryBoost(accessoryId) {
   // Warn if already have active boost
   const now = Date.now();
   if (state.activeAccessory && state.accessoryExpiresAt && state.accessoryExpiresAt > now) {
-    const currentAcc = COLLECTIBLES.accessories.find(a => a.id === state.activeAccessory);
+    const accessories = COLLECTIBLES.accessories || [];
+    const currentAcc = accessories.find(a => a.id === state.activeAccessory);
     const confirmed = await showSanrioModal({
       character: accessory.icon,
       title: 'Replace Current Boost?',
@@ -2281,7 +2627,8 @@ function startAccessoryTimer() {
     if (!state.accessoryExpiresAt || state.accessoryExpiresAt <= now) {
       // Boost expired
       if (state.activeAccessory) {
-        const expiredAcc = COLLECTIBLES.accessories.find(a => a.id === state.activeAccessory);
+        const accessories = COLLECTIBLES.accessories || [];
+        const expiredAcc = accessories.find(a => a.id === state.activeAccessory);
         showToast(`${expiredAcc?.icon || '⏰'} Boost expired!`);
         state.activeAccessory = null;
         state.accessoryExpiresAt = null;
@@ -2310,14 +2657,18 @@ function startAccessoryTimer() {
 function getAccessoryBonus() {
   const now = Date.now();
   if (state.activeAccessory && state.accessoryExpiresAt && state.accessoryExpiresAt > now) {
-    const accessory = COLLECTIBLES.accessories.find(a => a.id === state.activeAccessory);
+    const accessories = COLLECTIBLES.accessories || [];
+    const accessory = accessories.find(a => a.id === state.activeAccessory);
     return accessory ? accessory.fpBonus : 0;
   }
   return 0;
 }
 
 async function handleCollectibleClick(id, cost) {
-  const item = [...COLLECTIBLES.wallpapers, ...COLLECTIBLES.stickers].find(i => i.id === id);
+  // Validate COLLECTIBLES arrays exist
+  const wallpapers = COLLECTIBLES.wallpapers || [];
+  const stickers = COLLECTIBLES.stickers || [];
+  const item = [...wallpapers, ...stickers].find(i => i.id === id);
   
   if (!item) return;
   
@@ -2390,7 +2741,8 @@ function applyWallpaper() {
   }
   
   if (state.activeWallpaper) {
-    const wp = COLLECTIBLES.wallpapers.find(w => w.id === state.activeWallpaper);
+    const wallpapers = COLLECTIBLES.wallpapers || [];
+    const wp = wallpapers.find(w => w.id === state.activeWallpaper);
     if (wp) {
       // Create wallpaper overlay for character scene only
       const overlay = document.createElement('div');
@@ -2442,7 +2794,8 @@ function applyAccessory() {
   const hasActiveBoost = state.activeAccessory && state.accessoryExpiresAt && state.accessoryExpiresAt > now;
   
   if (hasActiveBoost) {
-    const acc = COLLECTIBLES.accessories.find(a => a.id === state.activeAccessory);
+    const accessories = COLLECTIBLES.accessories || [];
+    const acc = accessories.find(a => a.id === state.activeAccessory);
     if (acc) {
       // Add glow effect to character sprite
       if (spriteEl) {
@@ -2457,6 +2810,10 @@ function applyAccessory() {
 
 // Create interactive floating accessory effects
 function createAccessoryEffects(container, accessory) {
+  if (!container) {
+    console.warn('Container not provided to createAccessoryEffects');
+    return;
+  }
   // Main accessory floating above character
   const mainAcc = document.createElement('div');
   mainAcc.className = 'accessory-effect accessory-main';
@@ -2487,6 +2844,10 @@ function createAccessoryEffects(container, accessory) {
 
 function renderFriendsGrid() {
   const grid = document.getElementById('character-grid');
+  if (!grid) {
+    console.warn('Character grid not found');
+    return;
+  }
   
   grid.innerHTML = Object.keys(CHARACTERS).map(charId => {
     const char = CHARACTERS[charId];
@@ -2682,16 +3043,25 @@ function initEventListeners() {
   // Mode buttons
   document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const duration = parseInt(btn.dataset.duration);
-      startTimer(duration);
+      const duration = parseInt(btn.dataset.duration, 10);
+      // Validate parsed duration
+      if (!isNaN(duration) && duration > 0 && duration <= 180) {
+        startTimer(duration);
+      } else {
+        console.error('Invalid duration from mode button:', btn.dataset.duration);
+        showToast('Invalid timer duration. Please try again.');
+      }
     });
   });
   
   // Custom timer
   document.getElementById('custom-start').addEventListener('click', () => {
-    const minutes = parseInt(document.getElementById('custom-minutes').value);
-    if (minutes >= 1 && minutes <= 180) {
+    const minutes = parseInt(document.getElementById('custom-minutes').value, 10);
+    // Validate parsed minutes
+    if (!isNaN(minutes) && minutes >= 1 && minutes <= 180) {
       startTimer(minutes);
+    } else {
+      showToast('Please enter a valid duration between 1 and 180 minutes.');
     }
   });
   
@@ -2743,8 +3113,17 @@ function initEventListeners() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function syncWithBackground() {
+  // Prevent concurrent syncs to avoid race conditions
+  if (isSyncing) {
+    console.log('Sync already in progress, skipping');
+    return Promise.resolve();
+  }
+  
+  isSyncing = true;
   return new Promise((resolve) => {
     sendChromeMessage({ action: 'getTimerState' }, (response, error) => {
+      isSyncing = false; // Reset flag when done
+      
       if (error) {
         console.log('Background sync error:', error);
         resolve();
@@ -2763,9 +3142,27 @@ function syncWithBackground() {
       if (response.completedSession) {
         console.log('Found completed session:', response.completedSession);
         
+        // CRITICAL: Only claim if we're not already completing a session
+        // This prevents race conditions where multiple syncs try to complete
+        if (isCompletingSession) {
+          console.log('Already completing session, skipping claim');
+          resolve();
+          return;
+        }
+        
         // Ensure state is properly synced before completing session
-        // Set the duration for FP calculation
-        state.timer.duration = response.completedSession.duration;
+        // Use the duration from the completed session (it's the source of truth)
+        // But verify it's valid before using it
+        const sessionDuration = response.completedSession.duration;
+        if (sessionDuration && sessionDuration > 0) {
+          state.timer.duration = sessionDuration;
+        } else if (!state.timer.duration || state.timer.duration <= 0) {
+          // Fallback: if both are invalid, use a default
+          console.warn('Invalid duration in completed session, using default');
+          state.timer.duration = 25;
+        }
+        // Otherwise, preserve existing duration if it's valid
+        
         state.timer.remaining = 0;
         state.timer.isRunning = false;
         state.timer.isPaused = false;
@@ -2777,8 +3174,12 @@ function syncWithBackground() {
         completeSession();
         
         // Clear the completed session from background
-        sendChromeMessage({ action: 'claimSession' }, () => {
-          console.log('Completed session claimed');
+        sendChromeMessage({ action: 'claimSession' }, (response, error) => {
+          if (error) {
+            console.error('Failed to claim session:', error);
+          } else {
+            console.log('Completed session claimed');
+          }
         });
         
         resolve();
@@ -2789,27 +3190,70 @@ function syncWithBackground() {
         console.log('Syncing active timer from background:', response);
         
         // Calculate actual remaining time from background
+        const wasRunningBeforeSync = state.timer.isRunning;
         state.timer.isRunning = response.isRunning;
         state.timer.isPaused = response.isPaused;
-        state.timer.duration = response.duration;
-        state.timer.startTime = response.startTime;
         
-        if (!response.isPaused && response.startTime) {
+        // CRITICAL: Don't overwrite duration if timer is already running with a valid duration
+        // The duration should only be set when the timer starts, not during sync
+        // This prevents the bug where duration gets overwritten incorrectly and causes early completion
+        if (!state.timer.duration || state.timer.duration <= 0) {
+          // Only update duration if it's not set or invalid (initial sync or recovery)
+          // Validate response.duration before using it
+          if (response.duration && response.duration > 0 && response.duration <= 180) {
+            state.timer.duration = response.duration;
+          } else {
+            console.warn('Invalid duration in response, using default:', response.duration);
+            state.timer.duration = 25;
+          }
+        } else if (wasRunningBeforeSync && state.timer.duration > 0) {
+          // Timer was already running - preserve the original duration, don't overwrite
+          console.log('Preserving original duration during active timer sync:', state.timer.duration, 'vs response:', response.duration);
+        }
+        // Always use the current state's duration for calculations to prevent early completion
+        const currentDuration = state.timer.duration;
+        // Validate startTime before using it
+        if (response.startTime && response.startTime > 0) {
+          state.timer.startTime = response.startTime;
+        } else if (state.timer.isRunning && !state.timer.isPaused) {
+          // If timer is running but startTime is invalid, we have a problem
+          console.warn('Invalid startTime in sync response, timer may be in inconsistent state');
+          // Try to recover by using current time and adjusting
+          if (state.timer.startTime && state.timer.startTime > 0) {
+            // Keep existing startTime if it's valid
+          } else {
+            // No valid startTime anywhere - reset timer
+            console.error('No valid startTime found, resetting timer');
+            resetTimer();
+            resolve();
+            return;
+          }
+        }
+        
+        if (!response.isPaused && state.timer.startTime && state.timer.startTime > 0) {
           // Calculate remaining time based on when timer started
-          const elapsed = Math.floor((Date.now() - response.startTime) / 1000);
-          state.timer.remaining = Math.max(0, (response.duration * 60) - elapsed);
-          console.log('Calculated remaining:', state.timer.remaining, 'seconds');
+          // Use currentDuration (from state) not response.duration to prevent bugs
+          // Use state.timer.startTime (validated) not response.startTime
+          const elapsed = Math.floor((Date.now() - state.timer.startTime) / 1000);
+          state.timer.remaining = Math.max(0, (currentDuration * 60) - elapsed);
+          console.log('Calculated remaining:', state.timer.remaining, 'seconds', 'duration:', currentDuration);
           
-          // Check if actually completed
-          if (state.timer.remaining <= 0) {
+          // Check if actually completed - only complete if we've actually reached the full duration
+          // Also check if we're not already completing to prevent race conditions
+          if (state.timer.remaining <= 0 && elapsed >= (currentDuration * 60) && !isCompletingSession) {
             state.timer.isRunning = false;
             state.timer.isPaused = false;
+            // Clear sync interval before completing to prevent it from running during completion
+            if (syncInterval) {
+              clearInterval(syncInterval);
+              syncInterval = null;
+            }
             completeSession();
             resolve();
             return;
           }
         } else {
-          state.timer.remaining = response.remaining || (response.duration * 60);
+          state.timer.remaining = response.remaining || (currentDuration * 60);
         }
         
         // Update UI
@@ -2821,15 +3265,32 @@ function syncWithBackground() {
           
           // Update pause button state
           const pauseBtn = document.getElementById('pause-btn');
-          if (state.timer.isPaused) {
-            pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
-            updateTimerLabel('Paused');
-            // Don't run timer when paused
-            if (timerInterval) clearInterval(timerInterval);
+          if (pauseBtn) {
+            if (state.timer.isPaused) {
+              pauseBtn.innerHTML = '<span class="btn-icon">▶️</span> Resume';
+              updateTimerLabel('Paused');
+              // Don't run timer when paused
+              if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+              }
+            } else {
+              pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
+              updateTimerLabel('Focus Time');
+              runTimer();
+            }
           } else {
-            pauseBtn.innerHTML = '<span class="btn-icon">⏸️</span> Pause';
-            updateTimerLabel('Focus Time');
-            runTimer();
+            // If pause button doesn't exist, still update label and timer state
+            if (state.timer.isPaused) {
+              updateTimerLabel('Paused');
+              if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+              }
+            } else {
+              updateTimerLabel('Focus Time');
+              runTimer();
+            }
           }
         }
       } else {
@@ -2838,7 +3299,10 @@ function syncWithBackground() {
           showElement('mode-selection');
           hideElement('timer-controls');
           hideElement('session-complete');
-          if (timerInterval) clearInterval(timerInterval);
+          if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+          }
         }
       }
       
@@ -2863,8 +3327,10 @@ async function init() {
   updateCharacterDisplay();
   
   // Set settings UI to match state
-  document.getElementById('sound-toggle').checked = state.settings.soundEnabled;
-  document.getElementById('notif-toggle').checked = state.settings.notificationsEnabled;
+  const soundToggle = document.getElementById('sound-toggle');
+  const notifToggle = document.getElementById('notif-toggle');
+  if (soundToggle) soundToggle.checked = state.settings.soundEnabled;
+  if (notifToggle) notifToggle.checked = state.settings.notificationsEnabled;
   updatePalSelector();
   
   // Set active theme button
@@ -2902,7 +3368,17 @@ async function init() {
     // Check if yesterday met the requirement before resetting
     if (state.stats.lastSessionDate) {
       const lastDate = new Date(state.stats.lastSessionDate);
-      if (isYesterday(state.stats.lastSessionDate)) {
+      // Validate date before using it
+      if (isNaN(lastDate.getTime())) {
+        console.warn('Invalid lastSessionDate in init, resetting:', state.stats.lastSessionDate);
+        state.stats.lastSessionDate = null;
+        // If date is invalid, we can't determine streak status, so reset streak to be safe
+        if (state.stats.currentStreak > 0) {
+          applyStreakBrokenPenalty(state.stats.currentStreak);
+          state.stats.currentStreak = 0;
+          saveState();
+        }
+      } else if (isYesterday(state.stats.lastSessionDate)) {
         // Yesterday was the last session - check if they reached 2 hours
         // Note: dailyMinutes will be checked in updateStats when a session completes
         // This check happens at init, so we can't verify yesterday's minutes here
@@ -2938,7 +3414,12 @@ async function init() {
   startIdleReactions();
   
   // Show random tip on load sometimes
-  setTimeout(showRandomTip, 3000);
+  // Toast is created dynamically, so we just check if document.body exists
+  setTimeout(() => {
+    if (document.body) {
+      showRandomTip();
+    }
+  }, 3000);
   
   
   console.log('🎀 Sanrio Study Pals initialized!');

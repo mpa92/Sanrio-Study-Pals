@@ -853,7 +853,7 @@ input:focus, select:focus {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1; /* Above character-scene background but below scene-background */
   overflow: hidden;
   border-radius: inherit;
 }
@@ -861,20 +861,39 @@ input:focus, select:focus {
 .wallpaper-overlay .wp-emoji {
   position: absolute;
   font-size: 18px;
-  opacity: 0.12;
+  opacity: 0.25; /* Increased opacity for better visibility on all themes */
   animation: wp-float ease-in-out infinite;
-  filter: grayscale(20%);
+  filter: grayscale(10%); /* Less grayscale for more color */
+  /* Add text shadow for better visibility on dark backgrounds */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
 /* Vary sizes for depth effect */
 .wallpaper-overlay .wp-emoji:nth-child(odd) {
   font-size: 16px;
-  opacity: 0.08;
+  opacity: 0.20; /* Increased opacity */
 }
 
 .wallpaper-overlay .wp-emoji:nth-child(3n) {
   font-size: 22px;
-  opacity: 0.15;
+  opacity: 0.30; /* Increased opacity */
+}
+
+/* Ensure wallpaper is visible on dark themes */
+.theme-kuromi .wallpaper-overlay .wp-emoji,
+.theme-badtzmaru .wallpaper-overlay .wp-emoji {
+  opacity: 0.35; /* Higher opacity for dark themes */
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 3px rgba(255, 255, 255, 0.2);
+}
+
+.theme-kuromi .wallpaper-overlay .wp-emoji:nth-child(odd),
+.theme-badtzmaru .wallpaper-overlay .wp-emoji:nth-child(odd) {
+  opacity: 0.30;
+}
+
+.theme-kuromi .wallpaper-overlay .wp-emoji:nth-child(3n),
+.theme-badtzmaru .wallpaper-overlay .wp-emoji:nth-child(3n) {
+  opacity: 0.40;
 }
 
 @keyframes wp-float {
@@ -891,9 +910,9 @@ input:focus, select:focus {
   position: relative;
 }
 
-/* Scene element layering - wallpaper at 0, others above */
+/* Scene element layering - wallpaper at 1, scene-background at 2, others above */
 .scene-background {
-  z-index: 1;
+  z-index: 2; /* Above wallpaper overlay */
 }
 
 .placed-stickers {
